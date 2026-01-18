@@ -3,8 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Beaker, Play, CheckCircle2, XCircle, TrendingUp, AlertTriangle, Loader2 } from "lucide-react";
-import type { HistoricalMatch, BacktestResult, VariableType } from "@shared/schema";
+import { Beaker, Play, CheckCircle2, XCircle, TrendingUp, AlertTriangle, Loader2, GraduationCap, RefreshCw } from "lucide-react";
+import type { VariableType, TrainingResult, TrainingMatch } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -22,41 +22,59 @@ const variableLabels: Record<VariableType, string> = {
   home_advantage: "홈 어드밴티지",
 };
 
+interface TrainingDataResponse {
+  matches: Array<{
+    id: string;
+    homeTeam: string;
+    awayTeam: string;
+    homeScore: number;
+    awayScore: number;
+    actualResult: string;
+    date: string;
+  }>;
+  count: number;
+}
+
 export default function Laboratory() {
-  const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
+  const [trainingResult, setTrainingResult] = useState<TrainingResult | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
 
-  const { data: historicalData, isLoading } = useQuery<{ matches: HistoricalMatch[] }>({
-    queryKey: ["/api/historical-matches"],
+  const { data: trainingData, isLoading: isLoadingData, refetch: refetchData } = useQuery<TrainingDataResponse>({
+    queryKey: ["/api/training-data"],
+    retry: false,
   });
 
-  const backtestMutation = useMutation({
+  const trainMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/backtest");
+      const response = await apiRequest("POST", "/api/train");
       return response.json();
     },
-    onSuccess: (data: { result: BacktestResult }) => {
-      setBacktestResult(data.result);
+    onSuccess: (data: { result: TrainingResult }) => {
+      setTrainingResult(data.result);
+      setIsAnimating(false);
+    },
+    onError: (error) => {
+      console.error("Training failed:", error);
       setIsAnimating(false);
     },
   });
 
-  const handleRunBacktest = async () => {
-    setBacktestResult(null);
+  const handleStartTraining = async () => {
+    setTrainingResult(null);
     setIsAnimating(true);
     setProcessedCount(0);
 
-    const matches = historicalData?.matches || [];
-    for (let i = 0; i <= matches.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+    const matchCount = trainingData?.count || 10;
+    for (let i = 0; i <= matchCount; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 80));
       setProcessedCount(i);
     }
 
-    backtestMutation.mutate();
+    trainMutation.mutate();
   };
 
-  const matches = historicalData?.matches || [];
+  const matches = trainingData?.matches || [];
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -67,48 +85,60 @@ export default function Laboratory() {
             <h1 className="text-lg font-bold" data-testid="text-lab-title">실험실 (Laboratory)</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            과거 데이터로 AI 예측 엔진을 학습시킵니다
+            실제 API 데이터로 AI 예측 엔진을 학습시킵니다
           </p>
         </div>
       </header>
 
       <main className="px-4 py-4 max-w-2xl mx-auto space-y-4">
-        <Card>
+        <Card className="border-primary/30 bg-primary/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              백테스팅 시뮬레이션
+              <GraduationCap className="h-4 w-4 text-primary" />
+              AI 학습 모드 (실제 데이터)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              2023-2024 시즌 프리미어리그 {matches.length}경기 데이터를 분석하여
-              AI 예측 엔진의 변수 가중치를 자동으로 최적화합니다.
+              API-Football에서 가져온 <span className="font-bold text-primary">{matches.length}경기</span> 실제 결과 데이터를 사용하여 
+              AI 예측 알고리즘을 훈련합니다.
             </p>
-
-            <Button
-              onClick={handleRunBacktest}
-              disabled={isAnimating || backtestMutation.isPending || isLoading}
-              className="w-full"
-              data-testid="button-run-backtest"
-            >
-              {isAnimating || backtestMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  분석 중... ({processedCount}/{matches.length})
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  과거 데이터 시뮬레이션 시작
-                </>
-              )}
-            </Button>
+            
+            <div className="flex gap-2">
+              <Button
+                onClick={handleStartTraining}
+                disabled={isAnimating || trainMutation.isPending || isLoadingData || matches.length === 0}
+                className="flex-1"
+                data-testid="button-start-training"
+              >
+                {isAnimating || trainMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    학습 중... ({processedCount}/{matches.length})
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    학습 시작
+                  </>
+                )}
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => refetchData()}
+                disabled={isLoadingData}
+                data-testid="button-refresh-data"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
         <AnimatePresence>
-          {backtestResult && (
+          {trainingResult && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -122,28 +152,36 @@ export default function Laboratory() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="grid grid-cols-2 gap-2 text-center">
                     <div className="bg-muted rounded-md p-3">
-                      <div className="text-2xl font-bold">{backtestResult.totalMatches}</div>
+                      <div className="text-2xl font-bold">{trainingResult.totalMatches}</div>
                       <div className="text-xs text-muted-foreground">분석 경기</div>
                     </div>
                     <div className="bg-muted rounded-md p-3">
-                      <div className="text-2xl font-bold text-primary">{backtestResult.accuracy}%</div>
-                      <div className="text-xs text-muted-foreground">적중률</div>
-                    </div>
-                    <div className="bg-muted rounded-md p-3">
-                      <div className="text-2xl font-bold text-destructive">{backtestResult.significantErrors}</div>
+                      <div className="text-2xl font-bold text-destructive">{trainingResult.significantErrors}</div>
                       <div className="text-xs text-muted-foreground">주요 오류</div>
                     </div>
                   </div>
 
-                  {backtestResult.tuningWeights.length > 0 && (
+                  <div className="bg-gradient-to-r from-amber-500/20 to-green-500/20 rounded-lg p-4 text-center">
+                    <div className="text-sm text-muted-foreground mb-2">적중률 개선</div>
+                    <div className="flex items-center justify-center gap-3">
+                      <span className="text-2xl font-bold text-amber-600">{trainingResult.initialAccuracy}%</span>
+                      <TrendingUp className="h-5 w-5 text-green-500" />
+                      <span className="text-2xl font-bold text-green-600">{trainingResult.adjustedAccuracy}%</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      +{trainingResult.adjustedAccuracy - trainingResult.initialAccuracy}% 향상
+                    </div>
+                  </div>
+
+                  {trainingResult.tuningWeights.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium flex items-center gap-1">
                         <AlertTriangle className="h-4 w-4 text-amber-500" />
                         가중치 조정 내역
                       </h4>
-                      {backtestResult.tuningWeights.map((weight, index) => (
+                      {trainingResult.tuningWeights.map((weight, index) => (
                         <div
                           key={index}
                           className="flex items-center justify-between bg-muted/50 rounded-md p-2 text-sm"
@@ -154,6 +192,7 @@ export default function Laboratory() {
                             <span className="text-muted-foreground">{weight.originalWeight.toFixed(2)}</span>
                             <TrendingUp className="h-3 w-3 text-primary" />
                             <span className="text-primary font-medium">{weight.adjustedWeight.toFixed(2)}</span>
+                            <Badge variant="secondary" className="text-xs">1.2x</Badge>
                           </div>
                         </div>
                       ))}
@@ -162,7 +201,7 @@ export default function Laboratory() {
 
                   <div className="space-y-2 pt-2 border-t border-border">
                     <h4 className="text-sm font-medium">분석 인사이트</h4>
-                    {backtestResult.insights.map((insight, index) => (
+                    {trainingResult.insights.map((insight, index) => (
                       <p
                         key={index}
                         className="text-sm text-muted-foreground bg-muted/30 rounded-md p-2"
@@ -180,12 +219,22 @@ export default function Laboratory() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">과거 경기 데이터 (2023-24 시즌)</CardTitle>
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>실제 경기 결과 (2023-24 시즌)</span>
+              {isLoadingData && <Loader2 className="h-4 w-4 animate-spin" />}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isLoadingData ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : matches.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>데이터를 불러오지 못했습니다.</p>
+                <Button variant="ghost" onClick={() => refetchData()} className="mt-2">
+                  다시 시도
+                </Button>
               </div>
             ) : (
               <div className="space-y-2 max-h-[400px] overflow-y-auto">
@@ -193,23 +242,61 @@ export default function Laboratory() {
                   <div
                     key={match.id}
                     className="flex items-center justify-between p-2 rounded-md bg-muted/30 text-sm"
-                    data-testid={`historical-match-${match.id}`}
+                    data-testid={`training-match-${match.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{match.homeTeam} vs {match.awayTeam}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(match.date).toLocaleDateString('ko-KR')}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="font-bold text-foreground">
+                        {match.homeScore} - {match.awayScore}
+                      </span>
+                      <Badge
+                        variant={match.actualResult === 'home_win' ? 'default' : match.actualResult === 'away_win' ? 'secondary' : 'outline'}
+                        className="text-xs"
+                      >
+                        {resultLabels[match.actualResult]}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {trainingResult && trainingResult.matchDetails.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">예측 vs 실제 결과 비교</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {trainingResult.matchDetails.map((match) => (
+                  <div
+                    key={match.id}
+                    className={`flex items-center justify-between p-2 rounded-md text-sm ${
+                      match.wasCorrect ? 'bg-green-500/10' : 'bg-destructive/10'
+                    }`}
+                    data-testid={`prediction-result-${match.id}`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{match.matchTitle}</div>
-                      <div className="text-xs text-muted-foreground">{match.date}</div>
+                      <div className="text-xs text-muted-foreground">
+                        예측: {resultLabels[match.predictedResult]} ({match.aiPrediction}%)
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge
-                        variant={match.wasCorrect ? "default" : "destructive"}
-                        className="text-xs"
-                      >
-                        {match.wasCorrect ? (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        ) : (
-                          <XCircle className="h-3 w-3 mr-1" />
-                        )}
-                        {resultLabels[match.actualResult]}
+                      {match.wasCorrect ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      )}
+                      <Badge variant={match.wasCorrect ? "default" : "destructive"}>
+                        {match.homeScore}-{match.awayScore}
                       </Badge>
                       {!match.wasCorrect && (
                         <span className="text-xs text-destructive">
@@ -220,9 +307,9 @@ export default function Laboratory() {
                   </div>
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );

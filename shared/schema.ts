@@ -147,3 +147,31 @@ export interface BacktestResult {
   insights: string[];
   completedAt: string;
 }
+
+export interface TrainingMatch {
+  id: string;
+  matchTitle: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  date: string;
+  actualResult: MatchResult;
+  predictedResult: MatchResult;
+  aiPrediction: number;
+  wasCorrect: boolean;
+  errorMargin: number;
+  primaryCause: VariableType;
+}
+
+export interface TrainingResult {
+  totalMatches: number;
+  correctPredictions: number;
+  initialAccuracy: number;
+  adjustedAccuracy: number;
+  significantErrors: number;
+  tuningWeights: TuningWeight[];
+  insights: string[];
+  matchDetails: TrainingMatch[];
+  completedAt: string;
+}

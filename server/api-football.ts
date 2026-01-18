@@ -298,3 +298,107 @@ export async function fetchNextFixtures(): Promise<Match[]> {
 export function isApiConfigured(): boolean {
   return !!process.env.API_SPORTS_KEY;
 }
+
+export interface HistoricalMatchWithResult {
+  id: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  actualResult: 'home_win' | 'draw' | 'away_win';
+  date: string;
+  venue: string;
+  homeRank: number;
+  awayRank: number;
+  homeForm: string;
+  awayForm: string;
+}
+
+export async function fetchHistoricalMatchesWithResults(): Promise<HistoricalMatchWithResult[]> {
+  console.log("[API-Football] Fetching historical matches with results...");
+  
+  // Free plans only allow 2022-2024 seasons
+  const season = 2023;
+  
+  let fixturesResponse;
+  try {
+    // Get finished matches from a specific date range in 2023-24 season
+    fixturesResponse = await apiClient.get("/fixtures", {
+      params: {
+        league: PREMIER_LEAGUE_ID,
+        season: season,
+        from: "2024-03-01",
+        to: "2024-03-31",
+        status: "FT", // Finished matches only
+      },
+    });
+    
+    console.log("[API-Football] Historical fixtures response:", fixturesResponse.data.results);
+  } catch (error: any) {
+    console.error("[API-Football] Historical fixtures fetch failed:", error.message);
+    throw error;
+  }
+  
+  const fixtures = fixturesResponse.data.response || [];
+  
+  if (fixtures.length === 0) {
+    console.log("[API-Football] No historical fixtures found");
+    return [];
+  }
+  
+  // Fetch standings for team rankings
+  let standings: Map<number, { rank: number; form: string }> = new Map();
+  try {
+    const standingsResponse = await apiClient.get("/standings", {
+      params: {
+        league: PREMIER_LEAGUE_ID,
+        season: season,
+      },
+    });
+    
+    const standingsData = standingsResponse.data.response?.[0]?.league?.standings?.[0] || [];
+    standingsData.forEach((standing: ApiStanding) => {
+      standings.set(standing.team.id, {
+        rank: standing.rank,
+        form: standing.form || "DDDDD",
+      });
+    });
+  } catch (error: any) {
+    console.error("[API-Football] Standings fetch failed:", error.message);
+  }
+  
+  const matches: HistoricalMatchWithResult[] = fixtures.map((fixture: any) => {
+    const homeScore = fixture.goals?.home ?? 0;
+    const awayScore = fixture.goals?.away ?? 0;
+    
+    let actualResult: 'home_win' | 'draw' | 'away_win';
+    if (homeScore > awayScore) {
+      actualResult = 'home_win';
+    } else if (homeScore < awayScore) {
+      actualResult = 'away_win';
+    } else {
+      actualResult = 'draw';
+    }
+    
+    const homeStanding = standings.get(fixture.teams.home.id);
+    const awayStanding = standings.get(fixture.teams.away.id);
+    
+    return {
+      id: `hist-${fixture.fixture.id}`,
+      homeTeam: fixture.teams.home.name,
+      awayTeam: fixture.teams.away.name,
+      homeScore,
+      awayScore,
+      actualResult,
+      date: fixture.fixture.date,
+      venue: fixture.fixture.venue?.name || "Unknown",
+      homeRank: homeStanding?.rank || 10,
+      awayRank: awayStanding?.rank || 10,
+      homeForm: homeStanding?.form || "DDDDD",
+      awayForm: awayStanding?.form || "DDDDD",
+    };
+  });
+  
+  console.log("[API-Football] Fetched", matches.length, "historical matches with results");
+  return matches;
+}

@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { fetchHistoricalMatchesWithResults, isApiConfigured } from "./api-football";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -71,6 +72,43 @@ export async function registerRoutes(
       res.json({ result });
     } catch (error) {
       res.status(500).json({ error: "Failed to run backtest" });
+    }
+  });
+
+  // New endpoint: Fetch real historical matches from API
+  app.get("/api/training-data", async (req, res) => {
+    try {
+      if (!isApiConfigured()) {
+        return res.status(400).json({ error: "API not configured" });
+      }
+      
+      const matches = await fetchHistoricalMatchesWithResults();
+      res.json({ matches, count: matches.length });
+    } catch (error: any) {
+      console.error("[Routes] Training data fetch error:", error.message);
+      res.status(500).json({ error: error.message || "Failed to fetch training data" });
+    }
+  });
+
+  // New endpoint: Run training with real API data
+  app.post("/api/train", async (req, res) => {
+    try {
+      if (!isApiConfigured()) {
+        return res.status(400).json({ error: "API not configured" });
+      }
+      
+      console.log("[Routes] Starting training with real API data...");
+      const matches = await fetchHistoricalMatchesWithResults();
+      
+      if (matches.length === 0) {
+        return res.status(400).json({ error: "No training data available" });
+      }
+      
+      const result = await storage.runTrainingWithRealData(matches);
+      res.json({ result });
+    } catch (error: any) {
+      console.error("[Routes] Training error:", error.message);
+      res.status(500).json({ error: error.message || "Failed to run training" });
     }
   });
 
