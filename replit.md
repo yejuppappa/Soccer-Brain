@@ -36,8 +36,16 @@ Preferred communication style: Simple, everyday language.
 - **Build Tool**: Vite with hot module replacement
 
 The frontend follows a page-based structure with reusable components:
-- `/` - Match list showing today's games
+- `/` - Match list showing today's games with selectable probability badges
 - `/match/:id` - Detailed match analysis with interactive probability controls
+- `/prediction` - Prediction strategy page with selected matches and total odds calculation
+- `/lab` - Laboratory page for backtesting AI predictions against historical data
+
+### Bottom Tab Navigation
+Three main tabs at bottom of screen:
+- **분석 (Analysis)**: Match list with selectable win/draw/loss probabilities
+- **예측 (Prediction)**: Selected prediction cart with total odds and AI probability
+- **실험실 (Laboratory)**: Backtesting simulator with auto-tuning engine
 
 ### Backend Architecture
 - **Framework**: Express.js 5 on Node.js
@@ -48,6 +56,15 @@ The frontend follows a page-based structure with reusable components:
 API Endpoints:
 - `GET /api/matches` - Returns list of matches with date info
 - `GET /api/matches/:id/analysis` - Returns detailed match analysis data
+- `GET /api/historical-matches` - Returns 20 historical matches for backtesting
+- `POST /api/backtest` - Runs backtest simulation with auto-tuning logic
+
+### Backtesting & Auto-Tuning System
+The Laboratory feature analyzes past match predictions to improve AI accuracy:
+- **Mock Data**: 20 matches from 2023-2024 Premier League season
+- **Auto-Tuning Logic**: If prediction differs from actual result by 30%+, the system identifies the primary cause variable (fatigue/injury/weather/form/home_advantage)
+- **Weight Adjustment**: Variables with 2+ significant errors get a 1.2x weight multiplier
+- **Insights**: System generates human-readable insights about weight adjustments
 
 ### Data Storage
 - **ORM**: Drizzle ORM with PostgreSQL dialect
