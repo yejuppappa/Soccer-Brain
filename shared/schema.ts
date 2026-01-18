@@ -31,6 +31,7 @@ export interface Team {
   id: string;
   name: string;
   shortName: string;
+  logoUrl: string;
   leagueRank: number;
   recentResults: ('W' | 'D' | 'L')[];
   topScorer: {

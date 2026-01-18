@@ -4,7 +4,7 @@ import { Trophy } from "lucide-react";
 import { MatchCard } from "@/components/match-card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { MatchListResponse, Team } from "@shared/schema";
+import type { MatchListResponse, Team, WinDrawLossProbability } from "@shared/schema";
 
 export default function MatchList() {
   const [, navigate] = useLocation();
@@ -13,13 +13,19 @@ export default function MatchList() {
     queryKey: ["/api/matches"],
   });
 
-  const calculateBaseWinProbability = (homeTeam: Team, awayTeam: Team) => {
+  const calculateBaseProbability = (homeTeam: Team, awayTeam: Team): WinDrawLossProbability => {
     const rankDiff = awayTeam.leagueRank - homeTeam.leagueRank;
     const homeRecentWins = homeTeam.recentResults.filter(r => r === 'W').length;
     const awayRecentWins = awayTeam.recentResults.filter(r => r === 'W').length;
     
     let homeWin = 35 + (rankDiff * 2) + (homeRecentWins * 2) - (awayRecentWins * 1);
-    return Math.min(Math.max(Math.round(homeWin), 15), 60);
+    let awayWin = 35 - (rankDiff * 2) + (awayRecentWins * 2) - (homeRecentWins * 1);
+    
+    homeWin = Math.min(Math.max(Math.round(homeWin), 15), 60);
+    awayWin = Math.min(Math.max(Math.round(awayWin), 15), 60);
+    const draw = 100 - homeWin - awayWin;
+    
+    return { homeWin, draw, awayWin };
   };
 
   if (error) {
@@ -68,7 +74,7 @@ export default function MatchList() {
               <MatchCard
                 key={match.id}
                 match={match}
-                homeWinProbability={calculateBaseWinProbability(match.homeTeam, match.awayTeam)}
+                probability={calculateBaseProbability(match.homeTeam, match.awayTeam)}
                 onClick={() => navigate(`/match/${match.id}`)}
               />
             ))

@@ -1,20 +1,14 @@
-import { ChevronRight, Sun, Cloud, CloudRain, Snowflake } from "lucide-react";
+import { Sun, Cloud, CloudRain, Snowflake, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Match, WeatherCondition } from "@shared/schema";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import type { Match, WeatherCondition, WinDrawLossProbability } from "@shared/schema";
 
 interface MatchCardProps {
   match: Match;
   onClick: () => void;
-  homeWinProbability: number;
+  probability: WinDrawLossProbability;
 }
-
-const weatherLabels: Record<WeatherCondition, string> = {
-  sunny: 'Sunny',
-  cloudy: 'Cloudy',
-  rainy: 'Rain',
-  snowy: 'Snow',
-};
 
 function WeatherIcon({ condition }: { condition: WeatherCondition }) {
   switch (condition) {
@@ -29,7 +23,7 @@ function WeatherIcon({ condition }: { condition: WeatherCondition }) {
   }
 }
 
-export function MatchCard({ match, onClick, homeWinProbability }: MatchCardProps) {
+export function MatchCard({ match, onClick, probability }: MatchCardProps) {
   const matchTime = new Date(match.matchTime);
   const timeString = matchTime.toLocaleTimeString("ko-KR", {
     hour: "2-digit",
@@ -37,49 +31,68 @@ export function MatchCard({ match, onClick, homeWinProbability }: MatchCardProps
     hour12: false,
   });
 
-  const getProbabilityColor = (prob: number) => {
-    if (prob >= 50) return "bg-destructive text-destructive-foreground";
-    if (prob >= 35) return "bg-muted text-muted-foreground";
-    return "bg-primary text-primary-foreground";
-  };
-
   return (
     <Card
       className="p-4 hover-elevate active-elevate-2 cursor-pointer transition-all"
       onClick={onClick}
       data-testid={`card-match-${match.id}`}
     >
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="text-xs text-muted-foreground font-medium">{timeString}</span>
-            <span className="text-xs text-muted-foreground">|</span>
-            <span className="text-xs text-muted-foreground">{match.venue}</span>
-            <span className="text-xs text-muted-foreground">|</span>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <WeatherIcon condition={match.weather.condition} />
-              {weatherLabels[match.weather.condition]}, {match.weather.temperature}°C
-            </span>
-          </div>
-          
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-base">{match.homeTeam.name}</span>
-              <span className="text-xs text-muted-foreground">(홈)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-base text-muted-foreground">{match.awayTeam.name}</span>
-              <span className="text-xs text-muted-foreground">(원정)</span>
-            </div>
+      <div className="flex items-center justify-center gap-1 mb-3 text-xs text-muted-foreground">
+        <span className="font-medium">{timeString}</span>
+        <span>|</span>
+        <span>{match.venue}</span>
+        <span>|</span>
+        <span className="flex items-center gap-1">
+          <WeatherIcon condition={match.weather.condition} />
+          {match.weather.temperature}°C
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex-1 flex items-center gap-2 min-w-0" data-testid="team-home">
+          <Avatar className="h-10 w-10 border border-border">
+            <AvatarImage src={match.homeTeam.logoUrl} alt={match.homeTeam.name} />
+            <AvatarFallback className="text-xs font-bold">{match.homeTeam.shortName}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-sm truncate">{match.homeTeam.name}</p>
+            <p className="text-xs text-muted-foreground">홈</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Badge className={`${getProbabilityColor(homeWinProbability)} font-bold`}>
-            {homeWinProbability}%
+        <div className="flex items-center gap-1 shrink-0" data-testid="probability-badges">
+          <Badge 
+            className="bg-destructive text-destructive-foreground font-bold text-xs px-2 py-1"
+            data-testid="badge-home-win"
+          >
+            {probability.homeWin}%
           </Badge>
-          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          <Badge 
+            className="bg-muted text-muted-foreground font-bold text-xs px-2 py-1"
+            data-testid="badge-draw"
+          >
+            {probability.draw}%
+          </Badge>
+          <Badge 
+            className="bg-primary text-primary-foreground font-bold text-xs px-2 py-1"
+            data-testid="badge-away-win"
+          >
+            {probability.awayWin}%
+          </Badge>
         </div>
+
+        <div className="flex-1 flex items-center gap-2 min-w-0 justify-end" data-testid="team-away">
+          <div className="min-w-0 flex-1 text-right">
+            <p className="font-bold text-sm truncate">{match.awayTeam.name}</p>
+            <p className="text-xs text-muted-foreground">원정</p>
+          </div>
+          <Avatar className="h-10 w-10 border border-border">
+            <AvatarImage src={match.awayTeam.logoUrl} alt={match.awayTeam.name} />
+            <AvatarFallback className="text-xs font-bold">{match.awayTeam.shortName}</AvatarFallback>
+          </Avatar>
+        </div>
+
+        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
       </div>
     </Card>
   );
