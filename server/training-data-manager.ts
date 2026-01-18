@@ -37,8 +37,33 @@ const DAILY_QUOTA = 80;
 
 export async function loadTrainingData(): Promise<TrainingDataSet> {
   try {
-    const data = await fs.readFile(TRAINING_DATA_PATH, "utf-8");
-    return JSON.parse(data);
+    const rawData = await fs.readFile(TRAINING_DATA_PATH, "utf-8");
+    const data: TrainingDataSet = JSON.parse(rawData);
+    
+    // Auto-deduplicate on load: keep only unique fixture IDs
+    const seen = new Set<number>();
+    const uniqueMatches: StoredTrainingMatch[] = [];
+    
+    for (const match of data.matches) {
+      if (!seen.has(match.fixtureId)) {
+        seen.add(match.fixtureId);
+        uniqueMatches.push(match);
+      }
+    }
+    
+    // If duplicates were found, save cleaned data
+    if (uniqueMatches.length !== data.matches.length) {
+      console.log(`[TrainingData] Auto-cleaned ${data.matches.length - uniqueMatches.length} duplicates. Unique: ${uniqueMatches.length}`);
+      data.matches = uniqueMatches;
+      data.totalMatches = uniqueMatches.length;
+      data.lastUpdated = new Date().toISOString();
+      await fs.writeFile(TRAINING_DATA_PATH, JSON.stringify(data, null, 2), "utf-8");
+    }
+    
+    // Always ensure totalMatches reflects actual array length
+    data.totalMatches = data.matches.length;
+    
+    return data;
   } catch (error: any) {
     if (error.code === "ENOENT") {
       const emptyData: TrainingDataSet = {

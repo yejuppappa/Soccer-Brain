@@ -25,13 +25,14 @@ const variableLabels: Record<VariableType, string> = {
 
 interface TrainingDataResponse {
   matches: Array<{
-    id: string;
-    homeTeam: string;
-    awayTeam: string;
+    id: number;
+    homeTeam: { name: string; ranking: number; form: string };
+    awayTeam: { name: string; ranking: number; form: string };
     homeScore: number;
     awayScore: number;
     actualResult: string;
     date: string;
+    venue?: string;
   }>;
   count: number;
 }
@@ -62,10 +63,12 @@ export default function Laboratory() {
   const { data: trainingData, isLoading: isLoadingData, refetch: refetchData } = useQuery<TrainingDataResponse>({
     queryKey: ["/api/training-data"],
     retry: false,
+    staleTime: 0, // Always refetch to stay synced with training_set.json
   });
 
   const { data: trainingSetStats, refetch: refetchStats } = useQuery<TrainingSetStats>({
     queryKey: ["/api/training-set/stats"],
+    staleTime: 0, // Always refetch to stay synced
     retry: false,
   });
 
@@ -91,7 +94,9 @@ export default function Laboratory() {
     },
     onSuccess: (data: CollectionResult) => {
       setCollectionResult(data);
+      // Invalidate both queries to sync training and collection counts
       queryClient.invalidateQueries({ queryKey: ["/api/training-set/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/training-data"] });
     },
     onError: (error) => {
       console.error("Data collection failed:", error);
@@ -195,7 +200,11 @@ export default function Laboratory() {
         <div className="flex gap-2">
           <Button
             variant={activeTab === 'training' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('training')}
+            onClick={() => {
+              setActiveTab('training');
+              refetchData();
+              refetchStats();
+            }}
             className="flex-1"
             data-testid="tab-training"
           >
@@ -204,7 +213,11 @@ export default function Laboratory() {
           </Button>
           <Button
             variant={activeTab === 'collection' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('collection')}
+            onClick={() => {
+              setActiveTab('collection');
+              refetchData();
+              refetchStats();
+            }}
             className="flex-1"
             data-testid="tab-collection"
           >
@@ -330,6 +343,15 @@ export default function Laboratory() {
                             ))}
                           </div>
                         </ScrollArea>
+                      </div>
+                      
+                      <div className="mt-4 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                          <CheckCircle2 className="h-5 w-5" />
+                          <span className="font-semibold">
+                            총 저장된 데이터: {trainingSetStats?.totalMatches || 0}개 (중복 제거됨)
+                          </span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -495,7 +517,7 @@ export default function Laboratory() {
                         data-testid={`training-match-${match.id}`}
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{match.homeTeam} vs {match.awayTeam}</div>
+                          <div className="font-medium truncate">{match.homeTeam.name} vs {match.awayTeam.name}</div>
                           <div className="text-xs text-muted-foreground">
                             {new Date(match.date).toLocaleDateString('ko-KR')}
                           </div>

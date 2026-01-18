@@ -148,7 +148,24 @@ export interface BacktestResult {
   completedAt: string;
 }
 
+export interface TrainingMatchTeam {
+  name: string;
+  ranking: number;
+  form: string;
+}
+
 export interface TrainingMatch {
+  id: number;
+  homeTeam: TrainingMatchTeam;
+  awayTeam: TrainingMatchTeam;
+  homeScore: number;
+  awayScore: number;
+  date: string;
+  venue?: string;
+  actualResult: MatchResult;
+}
+
+export interface TrainingMatchDetail {
   id: string;
   matchTitle: string;
   homeTeam: string;
@@ -172,6 +189,6 @@ export interface TrainingResult {
   significantErrors: number;
   tuningWeights: TuningWeight[];
   insights: string[];
-  matchDetails: TrainingMatch[];
+  matchDetails: TrainingMatchDetail[];
   completedAt: string;
 }

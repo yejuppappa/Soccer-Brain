@@ -84,14 +84,25 @@ export async function registerRoutes(
     }
   });
 
-  // New endpoint: Fetch real historical matches from API
+  // Training data endpoint: Load from training_set.json (synced with data collection)
   app.get("/api/training-data", async (req, res) => {
     try {
-      if (!isApiConfigured()) {
-        return res.status(400).json({ error: "API not configured" });
-      }
+      // Load from training_set.json with auto-deduplication
+      const storedData = await loadTrainingData();
       
-      const matches = await fetchHistoricalMatchesWithResults();
+      // Convert stored format to training format for frontend
+      const matches = storedData.matches.map(m => ({
+        id: m.fixtureId,
+        homeTeam: { name: m.homeTeam, ranking: m.homeRank, form: m.homeForm },
+        awayTeam: { name: m.awayTeam, ranking: m.awayRank, form: m.awayForm },
+        date: m.date,
+        venue: m.venue,
+        actualResult: m.actualResult,
+        homeScore: m.homeScore,
+        awayScore: m.awayScore,
+      }));
+      
+      console.log(`[Routes] Training data loaded: ${matches.length} unique matches from training_set.json`);
       res.json({ matches, count: matches.length });
     } catch (error: any) {
       console.error("[Routes] Training data fetch error:", error.message);
