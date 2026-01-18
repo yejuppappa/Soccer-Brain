@@ -10,8 +10,15 @@ A mobile-first web application that analyzes soccer match win probabilities usin
 - **Core 3 (핵심 선수 변수)**: If top scorer is injured, subtract 20% from probability
 
 ### Interactive Features
-- Toggle switches to simulate fatigue and injury scenarios
+- Win/Draw/Loss horizontal gauge bar showing all three probabilities (always sums to 100%)
+- 3-section control panels: Environment (weather), Home Team, Away Team
+- Toggle switches to simulate weather, fatigue, and injury scenarios
+- Weather toggle: Rain adds +8% to draw probability
+- Fatigue toggle: -10% to affected team's win probability
+- Injury toggle: -15% to affected team's win probability
 - Real-time animated probability chart that updates when switches are toggled
+- Responsive desktop layout: 3-column grid (Home panel | Gauge | Away panel)
+- Weather information displayed on match cards (icon + temperature)
 - Dark mode support
 
 ## User Preferences
