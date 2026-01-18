@@ -1,5 +1,6 @@
 import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore, type Weather, type WeatherCondition, type WinDrawLossProbability, type Odds, type OddsTrend, type HistoricalMatch, type BacktestResult, type TuningWeight, type VariableType, type MatchResult } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { fetchNextFixtures, isApiConfigured } from "./api-football";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -10,6 +11,7 @@ export interface IStorage {
   getMatchAnalysis(matchId: string): Promise<MatchAnalysis | undefined>;
   getHistoricalMatches(): Promise<HistoricalMatch[]>;
   runBacktest(): Promise<BacktestResult>;
+  refreshMatchesFromApi(): Promise<void>;
 }
 
 function generateWeather(): Weather {
@@ -279,11 +281,14 @@ const defaultTuningWeights: Record<VariableType, number> = {
   home_advantage: 1.0,
 };
 
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
+
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private matches: Map<string, Match>;
   private historicalMatches: HistoricalMatch[];
   private tuningWeights: Record<VariableType, number>;
+  private lastApiFetch: number = 0;
 
   constructor() {
     this.users = new Map();
@@ -421,6 +426,37 @@ export class MemStorage implements IStorage {
       insights,
       completedAt: new Date().toISOString(),
     };
+  }
+
+  async refreshMatchesFromApi(): Promise<void> {
+    if (!isApiConfigured()) {
+      console.log("API not configured, using mock data");
+      return;
+    }
+    
+    const now = Date.now();
+    if (now - this.lastApiFetch < CACHE_TTL_MS) {
+      console.log("Using cached API data (TTL not expired)");
+      return;
+    }
+    
+    try {
+      console.log("Fetching matches from API-Football...");
+      const apiMatches = await fetchNextFixtures();
+      
+      if (apiMatches.length > 0) {
+        this.matches.clear();
+        apiMatches.forEach(match => {
+          this.matches.set(match.id, match);
+        });
+        this.lastApiFetch = now;
+        console.log(`Successfully loaded ${apiMatches.length} matches from API`);
+      } else {
+        console.log("No matches returned from API, keeping mock data");
+      }
+    } catch (error) {
+      console.error("Failed to fetch from API, keeping mock data:", error);
+    }
   }
 }
 

@@ -8,6 +8,8 @@ export async function registerRoutes(
 ): Promise<Server> {
   app.get("/api/matches", async (req, res) => {
     try {
+      await storage.refreshMatchesFromApi();
+      
       const matches = await storage.getMatches();
       const today = new Date().toLocaleDateString("ko-KR", {
         year: "numeric",
