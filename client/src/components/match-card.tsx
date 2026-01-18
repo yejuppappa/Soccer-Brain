@@ -2,6 +2,7 @@ import { Sun, Cloud, CloudRain, Snowflake, ChevronRight, ArrowUp, ArrowDown, Min
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { usePrediction, type PredictionType } from "@/context/prediction-context";
 import type { Match, WeatherCondition, WinDrawLossProbability, OddsTrend } from "@shared/schema";
 
 interface MatchCardProps {
@@ -34,13 +35,57 @@ function TrendIcon({ trend }: { trend: OddsTrend }) {
   }
 }
 
+interface SelectableBadgeProps {
+  type: PredictionType;
+  value: number;
+  isSelected: boolean;
+  onClick: (e: React.MouseEvent) => void;
+  testId: string;
+}
+
+function SelectableBadge({ type, value, isSelected, onClick, testId }: SelectableBadgeProps) {
+  const baseClasses = {
+    home: isSelected 
+      ? 'bg-destructive text-destructive-foreground ring-2 ring-destructive ring-offset-2 ring-offset-background' 
+      : 'bg-destructive/20 text-destructive hover-elevate',
+    draw: isSelected 
+      ? 'bg-muted text-foreground ring-2 ring-foreground ring-offset-2 ring-offset-background' 
+      : 'bg-muted/50 text-muted-foreground hover-elevate',
+    away: isSelected 
+      ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background' 
+      : 'bg-primary/20 text-primary hover-elevate',
+  };
+
+  return (
+    <Badge 
+      className={`${baseClasses[type]} font-bold text-xs px-2 py-1 cursor-pointer transition-all`}
+      onClick={onClick}
+      data-testid={testId}
+    >
+      {value}%
+    </Badge>
+  );
+}
+
 export function MatchCard({ match, onClick, probability }: MatchCardProps) {
+  const { addSelection, getSelection, removeSelection } = usePrediction();
+  const selection = getSelection(match.id);
+
   const matchTime = new Date(match.matchTime);
   const timeString = matchTime.toLocaleTimeString("ko-KR", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   });
+
+  const handleBadgeClick = (e: React.MouseEvent, prediction: PredictionType) => {
+    e.stopPropagation();
+    if (selection?.prediction === prediction) {
+      removeSelection(match.id);
+    } else {
+      addSelection(match, prediction, probability);
+    }
+  };
 
   return (
     <Card
@@ -73,24 +118,27 @@ export function MatchCard({ match, onClick, probability }: MatchCardProps) {
 
         <div className="flex flex-col items-center gap-1 shrink-0" data-testid="probability-badges">
           <div className="flex items-center gap-1">
-            <Badge 
-              className="bg-destructive text-destructive-foreground font-bold text-xs px-2 py-1"
-              data-testid="badge-home-win"
-            >
-              {probability.homeWin}%
-            </Badge>
-            <Badge 
-              className="bg-muted text-muted-foreground font-bold text-xs px-2 py-1"
-              data-testid="badge-draw"
-            >
-              {probability.draw}%
-            </Badge>
-            <Badge 
-              className="bg-primary text-primary-foreground font-bold text-xs px-2 py-1"
-              data-testid="badge-away-win"
-            >
-              {probability.awayWin}%
-            </Badge>
+            <SelectableBadge
+              type="home"
+              value={probability.homeWin}
+              isSelected={selection?.prediction === 'home'}
+              onClick={(e) => handleBadgeClick(e, 'home')}
+              testId="badge-home-win"
+            />
+            <SelectableBadge
+              type="draw"
+              value={probability.draw}
+              isSelected={selection?.prediction === 'draw'}
+              onClick={(e) => handleBadgeClick(e, 'draw')}
+              testId="badge-draw"
+            />
+            <SelectableBadge
+              type="away"
+              value={probability.awayWin}
+              isSelected={selection?.prediction === 'away'}
+              onClick={(e) => handleBadgeClick(e, 'away')}
+              testId="badge-away-win"
+            />
           </div>
           
           <div className="mt-1" data-testid="odds-section">

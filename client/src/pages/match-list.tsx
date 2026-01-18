@@ -40,7 +40,7 @@ export default function MatchList() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16">
       <header className="sticky top-0 z-50 bg-background border-b">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -89,13 +89,6 @@ export default function MatchList() {
         )}
       </main>
 
-      <footer className="border-t py-6 mt-8">
-        <div className="max-w-lg mx-auto px-4 text-center">
-          <p className="text-xs text-muted-foreground">
-            Triple Core 분석 시스템으로 객관적인 데이터 기반 예측
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }
