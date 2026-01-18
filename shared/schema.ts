@@ -110,3 +110,39 @@ export interface SimulationState {
   awayTeamFatigued: boolean;
   awayKeyPlayerInjured: boolean;
 }
+
+// Backtesting Types
+export type MatchResult = 'home_win' | 'draw' | 'away_win';
+export type VariableType = 'fatigue' | 'injury' | 'weather' | 'form' | 'home_advantage';
+
+export interface HistoricalMatch {
+  id: string;
+  matchTitle: string;
+  homeTeam: string;
+  awayTeam: string;
+  date: string;
+  aiPrediction: number; // AI predicted home win probability
+  predictedResult: MatchResult;
+  actualResult: MatchResult;
+  wasCorrect: boolean;
+  errorMargin: number; // difference between prediction and actual
+  primaryCause: VariableType;
+  causeDescription: string;
+}
+
+export interface TuningWeight {
+  variable: VariableType;
+  originalWeight: number;
+  adjustedWeight: number;
+  adjustmentReason: string;
+}
+
+export interface BacktestResult {
+  totalMatches: number;
+  correctPredictions: number;
+  accuracy: number;
+  significantErrors: number; // predictions off by 30%+
+  tuningWeights: TuningWeight[];
+  insights: string[];
+  completedAt: string;
+}

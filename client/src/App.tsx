@@ -9,6 +9,7 @@ import NotFound from "@/pages/not-found";
 import MatchList from "@/pages/match-list";
 import MatchAnalysis from "@/pages/match-analysis";
 import Prediction from "@/pages/prediction";
+import Laboratory from "@/pages/laboratory";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/" component={MatchList} />
       <Route path="/match/:id" component={MatchAnalysis} />
       <Route path="/prediction" component={Prediction} />
+      <Route path="/lab" component={Laboratory} />
       <Route component={NotFound} />
     </Switch>
   );

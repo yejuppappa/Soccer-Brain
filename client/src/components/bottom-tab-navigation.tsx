@@ -1,4 +1,4 @@
-import { BarChart3, Target } from "lucide-react";
+import { BarChart3, Target, Beaker } from "lucide-react";
 import { useLocation } from "wouter";
 import { usePrediction } from "@/context/prediction-context";
 
@@ -11,6 +11,7 @@ interface TabItem {
 const tabs: TabItem[] = [
   { path: "/", label: "분석", icon: BarChart3 },
   { path: "/prediction", label: "예측", icon: Target },
+  { path: "/lab", label: "실험실", icon: Beaker },
 ];
 
 export function BottomTabNavigation() {

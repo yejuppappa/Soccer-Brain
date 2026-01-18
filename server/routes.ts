@@ -40,5 +40,23 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/historical-matches", async (req, res) => {
+    try {
+      const matches = await storage.getHistoricalMatches();
+      res.json({ matches });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch historical matches" });
+    }
+  });
+
+  app.post("/api/backtest", async (req, res) => {
+    try {
+      const result = await storage.runBacktest();
+      res.json({ result });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to run backtest" });
+    }
+  });
+
   return httpServer;
 }

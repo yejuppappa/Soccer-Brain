@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore, type Weather, type WeatherCondition, type WinDrawLossProbability, type Odds, type OddsTrend } from "@shared/schema";
+import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore, type Weather, type WeatherCondition, type WinDrawLossProbability, type Odds, type OddsTrend, type HistoricalMatch, type BacktestResult, type TuningWeight, type VariableType, type MatchResult } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -8,6 +8,8 @@ export interface IStorage {
   getMatches(): Promise<Match[]>;
   getMatchById(id: string): Promise<Match | undefined>;
   getMatchAnalysis(matchId: string): Promise<MatchAnalysis | undefined>;
+  getHistoricalMatches(): Promise<HistoricalMatch[]>;
+  runBacktest(): Promise<BacktestResult>;
 }
 
 function generateWeather(): Weather {
@@ -244,13 +246,50 @@ function createCore3(team: Team, isHome: boolean): AnalysisCore {
   };
 }
 
+// Mock historical data for 2023-2024 season
+const mockHistoricalMatches: HistoricalMatch[] = [
+  { id: "hist-1", matchTitle: "맨시티 vs 아스날", homeTeam: "맨시티", awayTeam: "아스날", date: "2024-03-31", aiPrediction: 65, predictedResult: "home_win", actualResult: "draw", wasCorrect: false, errorMargin: 35, primaryCause: "fatigue", causeDescription: "원정 피로도 과소평가" },
+  { id: "hist-2", matchTitle: "리버풀 vs 첼시", homeTeam: "리버풀", awayTeam: "첼시", date: "2024-03-24", aiPrediction: 58, predictedResult: "home_win", actualResult: "home_win", wasCorrect: true, errorMargin: 8, primaryCause: "form", causeDescription: "최근 폼 정확히 반영" },
+  { id: "hist-3", matchTitle: "토트넘 vs 맨유", homeTeam: "토트넘", awayTeam: "맨유", date: "2024-03-17", aiPrediction: 52, predictedResult: "home_win", actualResult: "away_win", wasCorrect: false, errorMargin: 48, primaryCause: "injury", causeDescription: "핵심 선수 부상 영향 과소평가" },
+  { id: "hist-4", matchTitle: "아스날 vs 리버풀", homeTeam: "아스날", awayTeam: "리버풀", date: "2024-03-10", aiPrediction: 45, predictedResult: "draw", actualResult: "draw", wasCorrect: true, errorMargin: 5, primaryCause: "home_advantage", causeDescription: "홈 어드밴티지 정확히 반영" },
+  { id: "hist-5", matchTitle: "첼시 vs 뉴캐슬", homeTeam: "첼시", awayTeam: "뉴캐슬", date: "2024-03-03", aiPrediction: 55, predictedResult: "home_win", actualResult: "home_win", wasCorrect: true, errorMargin: 12, primaryCause: "form", causeDescription: "팀 폼 분석 정확" },
+  { id: "hist-6", matchTitle: "맨유 vs 맨시티", homeTeam: "맨유", awayTeam: "맨시티", date: "2024-02-25", aiPrediction: 35, predictedResult: "away_win", actualResult: "away_win", wasCorrect: true, errorMargin: 10, primaryCause: "form", causeDescription: "상대 전력 분석 정확" },
+  { id: "hist-7", matchTitle: "뉴캐슬 vs 토트넘", homeTeam: "뉴캐슬", awayTeam: "토트넘", date: "2024-02-18", aiPrediction: 48, predictedResult: "draw", actualResult: "home_win", wasCorrect: false, errorMargin: 32, primaryCause: "home_advantage", causeDescription: "홈 어드밴티지 과소평가" },
+  { id: "hist-8", matchTitle: "아스날 vs 첼시", homeTeam: "아스날", awayTeam: "첼시", date: "2024-02-11", aiPrediction: 62, predictedResult: "home_win", actualResult: "home_win", wasCorrect: true, errorMargin: 8, primaryCause: "form", causeDescription: "팀 폼 반영 정확" },
+  { id: "hist-9", matchTitle: "리버풀 vs 맨시티", homeTeam: "리버풀", awayTeam: "맨시티", date: "2024-02-04", aiPrediction: 42, predictedResult: "draw", actualResult: "away_win", wasCorrect: false, errorMargin: 38, primaryCause: "fatigue", causeDescription: "경기 일정 밀도 과소평가" },
+  { id: "hist-10", matchTitle: "맨시티 vs 토트넘", homeTeam: "맨시티", awayTeam: "토트넘", date: "2024-01-28", aiPrediction: 68, predictedResult: "home_win", actualResult: "home_win", wasCorrect: true, errorMargin: 5, primaryCause: "form", causeDescription: "최근 5경기 분석 정확" },
+  { id: "hist-11", matchTitle: "첼시 vs 리버풀", homeTeam: "첼시", awayTeam: "리버풀", date: "2024-01-21", aiPrediction: 38, predictedResult: "away_win", actualResult: "draw", wasCorrect: false, errorMargin: 28, primaryCause: "weather", causeDescription: "우천 영향 과소평가" },
+  { id: "hist-12", matchTitle: "토트넘 vs 아스날", homeTeam: "토트넘", awayTeam: "아스날", date: "2024-01-14", aiPrediction: 40, predictedResult: "draw", actualResult: "away_win", wasCorrect: false, errorMargin: 35, primaryCause: "injury", causeDescription: "손흥민 부상 영향 과대평가" },
+  { id: "hist-13", matchTitle: "맨유 vs 리버풀", homeTeam: "맨유", awayTeam: "리버풀", date: "2024-01-07", aiPrediction: 32, predictedResult: "away_win", actualResult: "away_win", wasCorrect: true, errorMargin: 12, primaryCause: "form", causeDescription: "원정팀 폼 정확 반영" },
+  { id: "hist-14", matchTitle: "뉴캐슬 vs 맨시티", homeTeam: "뉴캐슬", awayTeam: "맨시티", date: "2023-12-27", aiPrediction: 30, predictedResult: "away_win", actualResult: "away_win", wasCorrect: true, errorMargin: 8, primaryCause: "form", causeDescription: "양팀 전력차 정확 분석" },
+  { id: "hist-15", matchTitle: "리버풀 vs 맨유", homeTeam: "리버풀", awayTeam: "맨유", date: "2023-12-17", aiPrediction: 62, predictedResult: "home_win", actualResult: "home_win", wasCorrect: true, errorMargin: 10, primaryCause: "home_advantage", causeDescription: "안필드 홈 이점 반영" },
+  { id: "hist-16", matchTitle: "아스날 vs 뉴캐슬", homeTeam: "아스날", awayTeam: "뉴캐슬", date: "2023-12-10", aiPrediction: 55, predictedResult: "home_win", actualResult: "draw", wasCorrect: false, errorMargin: 30, primaryCause: "fatigue", causeDescription: "유럽대회 피로 미반영" },
+  { id: "hist-17", matchTitle: "맨시티 vs 리버풀", homeTeam: "맨시티", awayTeam: "리버풀", date: "2023-12-03", aiPrediction: 52, predictedResult: "home_win", actualResult: "draw", wasCorrect: false, errorMargin: 22, primaryCause: "weather", causeDescription: "폭설 경기 변수 미반영" },
+  { id: "hist-18", matchTitle: "첼시 vs 맨유", homeTeam: "첼시", awayTeam: "맨유", date: "2023-11-26", aiPrediction: 48, predictedResult: "draw", actualResult: "home_win", wasCorrect: false, errorMargin: 32, primaryCause: "injury", causeDescription: "원정팀 부상자 과소평가" },
+  { id: "hist-19", matchTitle: "토트넘 vs 리버풀", homeTeam: "토트넘", awayTeam: "리버풀", date: "2023-11-19", aiPrediction: 42, predictedResult: "draw", actualResult: "away_win", wasCorrect: false, errorMargin: 38, primaryCause: "form", causeDescription: "리버풀 상승세 과소평가" },
+  { id: "hist-20", matchTitle: "맨유 vs 아스날", homeTeam: "맨유", awayTeam: "아스날", date: "2023-11-12", aiPrediction: 38, predictedResult: "away_win", actualResult: "away_win", wasCorrect: true, errorMargin: 8, primaryCause: "form", causeDescription: "아스날 폼 정확 반영" },
+];
+
+// Tuning weights for the auto-tuning system
+const defaultTuningWeights: Record<VariableType, number> = {
+  fatigue: 1.0,
+  injury: 1.0,
+  weather: 1.0,
+  form: 1.0,
+  home_advantage: 1.0,
+};
+
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private matches: Map<string, Match>;
+  private historicalMatches: HistoricalMatch[];
+  private tuningWeights: Record<VariableType, number>;
 
   constructor() {
     this.users = new Map();
     this.matches = new Map();
+    this.historicalMatches = [...mockHistoricalMatches];
+    this.tuningWeights = { ...defaultTuningWeights };
     
     mockMatches.forEach(match => {
       this.matches.set(match.id, match);
@@ -307,6 +346,80 @@ export class MemStorage implements IStorage {
       },
       baseProbability,
       adjustedProbability: { ...baseProbability },
+    };
+  }
+
+  async getHistoricalMatches(): Promise<HistoricalMatch[]> {
+    return this.historicalMatches;
+  }
+
+  async runBacktest(): Promise<BacktestResult> {
+    const totalMatches = this.historicalMatches.length;
+    const correctPredictions = this.historicalMatches.filter(m => m.wasCorrect).length;
+    const accuracy = Math.round((correctPredictions / totalMatches) * 100);
+    
+    // Find matches with significant errors (30%+ difference)
+    const significantErrors = this.historicalMatches.filter(m => m.errorMargin >= 30);
+    
+    // Count causes of significant errors
+    const causeCounts: Record<VariableType, number> = {
+      fatigue: 0,
+      injury: 0,
+      weather: 0,
+      form: 0,
+      home_advantage: 0,
+    };
+    
+    significantErrors.forEach(match => {
+      causeCounts[match.primaryCause]++;
+    });
+    
+    // Auto-tune weights based on error analysis
+    const tuningWeights: TuningWeight[] = [];
+    const insights: string[] = [];
+    
+    for (const [variable, count] of Object.entries(causeCounts)) {
+      if (count >= 2) {
+        const varType = variable as VariableType;
+        const originalWeight = this.tuningWeights[varType];
+        const adjustedWeight = Math.round(originalWeight * 1.2 * 100) / 100;
+        this.tuningWeights[varType] = adjustedWeight;
+        
+        const variableNames: Record<VariableType, string> = {
+          fatigue: "피로도",
+          injury: "부상 변수",
+          weather: "날씨 변수",
+          form: "팀 폼",
+          home_advantage: "홈 어드밴티지",
+        };
+        
+        tuningWeights.push({
+          variable: varType,
+          originalWeight,
+          adjustedWeight,
+          adjustmentReason: `${count}건의 예측 오류 발생`,
+        });
+        
+        const percentChange = Math.round((adjustedWeight - originalWeight) * 100);
+        insights.push(`'${variableNames[varType]}' 변수의 중요도를 ${percentChange}% 상향 조정했습니다.`);
+      }
+    }
+    
+    if (insights.length === 0) {
+      insights.push("모든 변수의 가중치가 적절합니다. 추가 조정이 필요하지 않습니다.");
+    }
+    
+    insights.unshift(`지난 시즌 ${totalMatches}경기 데이터로 훈련 완료.`);
+    insights.push(`전체 적중률: ${accuracy}% (${correctPredictions}/${totalMatches})`);
+    
+    return {
+      totalMatches,
+      correctPredictions,
+      accuracy,
+      significantErrors: significantErrors.length,
+      tuningWeights,
+      insights,
+      completedAt: new Date().toISOString(),
     };
   }
 }
