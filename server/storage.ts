@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore, type Weather, type WeatherCondition, type WinDrawLossProbability, type Odds } from "@shared/schema";
+import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore, type Weather, type WeatherCondition, type WinDrawLossProbability, type Odds, type OddsTrend } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -54,6 +54,11 @@ function calculateBaseProbability(homeTeam: Team, awayTeam: Team): WinDrawLossPr
   return { homeWin, draw, awayWin };
 }
 
+function generateRandomTrend(): OddsTrend {
+  const trends: OddsTrend[] = ['up', 'down', 'stable'];
+  return trends[Math.floor(Math.random() * trends.length)];
+}
+
 function calculateOddsFromProbability(probability: WinDrawLossProbability): Odds {
   const margin = 1.08;
   
@@ -68,6 +73,7 @@ function calculateOddsFromProbability(probability: WinDrawLossProbability): Odds
   return {
     domestic: [domesticHome, domesticDraw, domesticAway],
     overseas: [overseasHome, overseasDraw, overseasAway],
+    trend: [generateRandomTrend(), generateRandomTrend(), generateRandomTrend()],
   };
 }
 

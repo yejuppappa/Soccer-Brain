@@ -42,9 +42,12 @@ export interface Team {
   lastMatchDaysAgo: number;
 }
 
+export type OddsTrend = 'up' | 'down' | 'stable';
+
 export interface Odds {
   domestic: [number, number, number];
   overseas: [number, number, number];
+  trend: [OddsTrend, OddsTrend, OddsTrend]; // [homeWin, draw, awayWin] trend
 }
 
 export interface Match {
