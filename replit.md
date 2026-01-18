@@ -66,10 +66,19 @@ The Laboratory feature analyzes past match predictions to improve AI accuracy:
 - **Weight Adjustment**: Variables with 2+ significant errors get a 1.2x weight multiplier
 - **Insights**: System generates human-readable insights about weight adjustments
 
+### API-Football Integration
+The app integrates with API-Football (https://www.api-football.com/) for real Premier League data:
+- **Client**: `server/api-football.ts` using axios with x-apisports-key header
+- **API Key**: Stored in `API_SPORTS_KEY` secret (server-side only)
+- **Endpoints Used**: `/fixtures` for upcoming matches, `/standings` for league rankings
+- **Cache TTL**: 5-minute cache to prevent excessive API calls
+- **Fallback**: Uses mock data if API is not configured or fails
+- **Data Mapping**: API responses mapped to Match/Team schema with logos, standings, and form data
+
 ### Data Storage
 - **ORM**: Drizzle ORM with PostgreSQL dialect
 - **Schema Location**: `shared/schema.ts` for shared types between client and server
-- **Current State**: Mock data implementation in `server/storage.ts` with interface ready for database integration
+- **Current State**: In-memory storage with API-Football integration and mock data fallback
 - **Migration Tool**: Drizzle Kit (`db:push` script for schema sync)
 
 ### Design System
