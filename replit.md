@@ -61,10 +61,23 @@ API Endpoints:
 
 ### Backtesting & Auto-Tuning System
 The Laboratory feature analyzes past match predictions to improve AI accuracy:
-- **Mock Data**: 20 matches from 2023-2024 Premier League season
+- **Real Data Training**: Uses actual API-Football historical matches for AI training
 - **Auto-Tuning Logic**: If prediction differs from actual result by 30%+, the system identifies the primary cause variable (fatigue/injury/weather/form/home_advantage)
 - **Weight Adjustment**: Variables with 2+ significant errors get a 1.2x weight multiplier
 - **Insights**: System generates human-readable insights about weight adjustments
+
+### Smart Data Collection System
+The Laboratory page includes a data collection feature for building training datasets:
+- **Fixture ID Deduplication**: Checks `training_set.json` for existing fixture IDs before saving
+- **Daily Quota**: Limits to 80 new matches per collection run to preserve API quota (100/day free limit)
+- **Append-Only Storage**: New data is appended to existing `training_set.json`, never overwrites
+- **Progress Logs**: Real-time logs showing collection status, duplicates skipped, and matches saved
+- **Date Range Batching**: Fetches 2023-24 season fixtures in monthly batches for efficiency
+
+API Endpoints for Data Collection:
+- `GET /api/training-set/stats` - Returns { totalMatches, lastUpdated, uniqueTeams }
+- `GET /api/training-set` - Returns full training dataset
+- `POST /api/collect-data` - Runs smart collection with deduplication
 
 ### API-Football Integration
 The app integrates with API-Football (https://www.api-football.com/) for real Premier League data:
