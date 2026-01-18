@@ -73,7 +73,8 @@ function calculateOddsFromProbability(probability: WinDrawLossProbability): Odds
   return {
     domestic: [domesticHome, domesticDraw, domesticAway],
     overseas: [overseasHome, overseasDraw, overseasAway],
-    trend: [generateRandomTrend(), generateRandomTrend(), generateRandomTrend()],
+    domesticTrend: [generateRandomTrend(), generateRandomTrend(), generateRandomTrend()],
+    overseasTrend: [generateRandomTrend(), generateRandomTrend(), generateRandomTrend()],
   };
 }
 

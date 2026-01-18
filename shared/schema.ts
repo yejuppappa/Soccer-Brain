@@ -47,7 +47,8 @@ export type OddsTrend = 'up' | 'down' | 'stable';
 export interface Odds {
   domestic: [number, number, number];
   overseas: [number, number, number];
-  trend: [OddsTrend, OddsTrend, OddsTrend]; // [homeWin, draw, awayWin] trend
+  domesticTrend: [OddsTrend, OddsTrend, OddsTrend]; // [homeWin, draw, awayWin] trend
+  overseasTrend: [OddsTrend, OddsTrend, OddsTrend]; // [homeWin, draw, awayWin] trend
 }
 
 export interface Match {
