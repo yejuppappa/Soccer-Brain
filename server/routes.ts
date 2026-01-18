@@ -199,6 +199,7 @@ export async function registerRoutes(
         logs.push("이미 모든 데이터가 고품질입니다!");
         return res.json({
           enriched: 0,
+          errors: 0,
           total: trainingData.totalMatches,
           logs,
         });
