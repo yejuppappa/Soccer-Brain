@@ -1,8 +1,8 @@
-import { Sun, Cloud, CloudRain, Snowflake, ChevronRight } from "lucide-react";
+import { Sun, Cloud, CloudRain, Snowflake, ChevronRight, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import type { Match, WeatherCondition, WinDrawLossProbability } from "@shared/schema";
+import type { Match, WeatherCondition, WinDrawLossProbability, OddsTrend } from "@shared/schema";
 
 interface MatchCardProps {
   match: Match;
@@ -21,6 +21,26 @@ function WeatherIcon({ condition }: { condition: WeatherCondition }) {
     case 'snowy':
       return <Snowflake className="h-3 w-3 text-primary" />;
   }
+}
+
+function TrendIcon({ trend }: { trend: OddsTrend }) {
+  switch (trend) {
+    case 'up':
+      return <TrendingUp className="h-3 w-3 text-destructive" />;
+    case 'down':
+      return <TrendingDown className="h-3 w-3 text-primary" />;
+    case 'stable':
+      return <Minus className="h-2.5 w-2.5 text-muted-foreground" />;
+  }
+}
+
+function OddsCell({ value, trend }: { value: number; trend: OddsTrend }) {
+  return (
+    <div className="flex items-center justify-center gap-0.5">
+      <span className="font-mono text-xs">{value.toFixed(2)}</span>
+      <TrendIcon trend={trend} />
+    </div>
+  );
 }
 
 export function MatchCard({ match, onClick, probability }: MatchCardProps) {
@@ -50,12 +70,12 @@ export function MatchCard({ match, onClick, probability }: MatchCardProps) {
 
       <div className="flex items-center justify-between gap-2">
         <div className="flex-1 flex items-center gap-2 min-w-0" data-testid="team-home">
-          <Avatar className="h-10 w-10 border border-border">
+          <Avatar className="h-10 w-10 border border-border shrink-0">
             <AvatarImage src={match.homeTeam.logoUrl} alt={match.homeTeam.name} />
             <AvatarFallback className="text-xs font-bold">{match.homeTeam.shortName}</AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <p className="font-bold text-sm truncate">{match.homeTeam.name}</p>
+            <p className="font-bold text-xs leading-tight break-words">{match.homeTeam.name}</p>
             <p className="text-xs text-muted-foreground">홈</p>
           </div>
         </div>
@@ -82,28 +102,27 @@ export function MatchCard({ match, onClick, probability }: MatchCardProps) {
             </Badge>
           </div>
           
-          <div className="flex flex-col items-center gap-0.5 mt-1" data-testid="odds-section">
-            <div className="flex items-center gap-1 text-xs">
-              <span className="text-foreground font-medium">Betman</span>
-              <span className="font-mono text-foreground/80">
-                {match.odds.domestic[0].toFixed(2)} | {match.odds.domestic[1].toFixed(2)} | {match.odds.domestic[2].toFixed(2)}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <span>Bet365</span>
-              <span className="font-mono">
-                {match.odds.overseas[0].toFixed(2)} | {match.odds.overseas[1].toFixed(2)} | {match.odds.overseas[2].toFixed(2)}
-              </span>
+          <div className="mt-1" data-testid="odds-section">
+            <div className="grid grid-cols-4 gap-x-2 gap-y-0.5 text-xs items-center">
+              <span className="text-muted-foreground">국내</span>
+              <OddsCell value={match.odds.domestic[0]} trend={match.odds.trend[0]} />
+              <OddsCell value={match.odds.domestic[1]} trend={match.odds.trend[1]} />
+              <OddsCell value={match.odds.domestic[2]} trend={match.odds.trend[2]} />
+              
+              <span className="text-muted-foreground">해외</span>
+              <span className="font-mono text-xs text-center text-muted-foreground">{match.odds.overseas[0].toFixed(2)}</span>
+              <span className="font-mono text-xs text-center text-muted-foreground">{match.odds.overseas[1].toFixed(2)}</span>
+              <span className="font-mono text-xs text-center text-muted-foreground">{match.odds.overseas[2].toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         <div className="flex-1 flex items-center gap-2 min-w-0 justify-end" data-testid="team-away">
           <div className="min-w-0 flex-1 text-right">
-            <p className="font-bold text-sm truncate">{match.awayTeam.name}</p>
+            <p className="font-bold text-xs leading-tight break-words">{match.awayTeam.name}</p>
             <p className="text-xs text-muted-foreground">원정</p>
           </div>
-          <Avatar className="h-10 w-10 border border-border">
+          <Avatar className="h-10 w-10 border border-border shrink-0">
             <AvatarImage src={match.awayTeam.logoUrl} alt={match.awayTeam.name} />
             <AvatarFallback className="text-xs font-bold">{match.awayTeam.shortName}</AvatarFallback>
           </Avatar>
