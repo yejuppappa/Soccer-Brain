@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Beaker, Play, CheckCircle2, XCircle, TrendingUp, AlertTriangle, Loader2, GraduationCap, RefreshCw, Database, Download, FileJson } from "lucide-react";
+import { Beaker, Play, CheckCircle2, XCircle, TrendingUp, AlertTriangle, Loader2, GraduationCap, RefreshCw, Database, Download, FileJson, Save } from "lucide-react";
 import type { VariableType, TrainingResult, TrainingMatch } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
@@ -57,6 +57,7 @@ export default function Laboratory() {
   const [processedCount, setProcessedCount] = useState(0);
   const [collectionResult, setCollectionResult] = useState<CollectionResult | null>(null);
   const [activeTab, setActiveTab] = useState<'training' | 'collection'>('training');
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const { data: trainingData, isLoading: isLoadingData, refetch: refetchData } = useQuery<TrainingDataResponse>({
     queryKey: ["/api/training-data"],
@@ -116,15 +117,73 @@ export default function Laboratory() {
     collectMutation.mutate();
   };
 
+  const handleDownloadBackup = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await fetch("/api/training-set/download");
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.error === "NO_DATA") {
+          alert("백업할 데이터가 없습니다! 먼저 수집을 진행해주세요.");
+        } else {
+          alert("다운로드 중 오류가 발생했습니다.");
+        }
+        return;
+      }
+      
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("Content-Disposition");
+      let filename = "soccer_ai_backup.json";
+      
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match) filename = match[1];
+      }
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert("백업할 데이터가 없습니다! 먼저 수집을 진행해주세요.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const matches = trainingData?.matches || [];
 
   return (
     <div className="min-h-screen bg-background pb-20">
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
         <div className="px-4 py-3 max-w-2xl mx-auto">
-          <div className="flex items-center gap-2">
-            <Beaker className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-bold" data-testid="text-lab-title">실험실 (Laboratory)</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Beaker className="h-5 w-5 text-primary" />
+              <h1 className="text-lg font-bold" data-testid="text-lab-title">실험실 (Laboratory)</h1>
+            </div>
+            <div className="flex flex-col items-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadBackup}
+                disabled={isDownloading}
+                data-testid="button-download-backup"
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-1" />
+                )}
+                백업 다운로드
+              </Button>
+              <span className="text-xs text-muted-foreground mt-1">클릭 시 PC에 파일로 저장됩니다</span>
+            </div>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             실제 API 데이터로 AI 예측 엔진을 학습시킵니다

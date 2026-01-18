@@ -143,6 +143,28 @@ export async function registerRoutes(
     }
   });
 
+  // Download training data as backup file
+  app.get("/api/training-set/download", async (req, res) => {
+    try {
+      const data = await loadTrainingData();
+      
+      if (data.totalMatches === 0) {
+        return res.status(404).json({ error: "NO_DATA", message: "백업할 데이터가 없습니다" });
+      }
+      
+      const today = new Date();
+      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+      const filename = `soccer_ai_backup_${dateStr}.json`;
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(JSON.stringify(data, null, 2));
+    } catch (error: any) {
+      console.error("[Routes] Training set download error:", error.message);
+      res.status(500).json({ error: error.message || "Failed to download training set" });
+    }
+  });
+
   // Smart data collection with deduplication
   app.post("/api/collect-data", async (req, res) => {
     try {
