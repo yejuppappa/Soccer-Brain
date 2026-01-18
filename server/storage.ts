@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore, type Weather, type WeatherCondition, type WinDrawLossProbability } from "@shared/schema";
+import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore, type Weather, type WeatherCondition, type WinDrawLossProbability, type Odds } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -35,6 +35,39 @@ function generateWeather(): Weather {
     condition,
     temperature,
     icon: condition,
+  };
+}
+
+function calculateBaseProbability(homeTeam: Team, awayTeam: Team): WinDrawLossProbability {
+  const rankDiff = awayTeam.leagueRank - homeTeam.leagueRank;
+  const homeRecentWins = homeTeam.recentResults.filter(r => r === 'W').length;
+  const awayRecentWins = awayTeam.recentResults.filter(r => r === 'W').length;
+  
+  let homeWin = 35 + (rankDiff * 2) + (homeRecentWins * 2) - (awayRecentWins * 1);
+  let awayWin = 35 - (rankDiff * 2) + (awayRecentWins * 2) - (homeRecentWins * 1);
+  
+  homeWin = Math.min(Math.max(homeWin, 15), 60);
+  awayWin = Math.min(Math.max(awayWin, 15), 60);
+  
+  const draw = 100 - homeWin - awayWin;
+  
+  return { homeWin, draw, awayWin };
+}
+
+function calculateOddsFromProbability(probability: WinDrawLossProbability): Odds {
+  const margin = 1.08;
+  
+  const overseasHome = Math.round((1 / (probability.homeWin / 100) * margin) * 100) / 100;
+  const overseasDraw = Math.round((1 / (probability.draw / 100) * margin) * 100) / 100;
+  const overseasAway = Math.round((1 / (probability.awayWin / 100) * margin) * 100) / 100;
+  
+  const domesticHome = Math.round((overseasHome - 0.1 - Math.random() * 0.1) * 100) / 100;
+  const domesticDraw = Math.round((overseasDraw - 0.1 - Math.random() * 0.1) * 100) / 100;
+  const domesticAway = Math.round((overseasAway - 0.1 - Math.random() * 0.1) * 100) / 100;
+  
+  return {
+    domestic: [domesticHome, domesticDraw, domesticAway],
+    overseas: [overseasHome, overseasDraw, overseasAway],
   };
 }
 
@@ -142,64 +175,30 @@ const mockTeams: Team[] = [
 ];
 
 const today = new Date();
-const mockMatches: Match[] = [
-  {
-    id: "match-1",
-    homeTeam: mockTeams[0],
-    awayTeam: mockTeams[1],
-    matchTime: new Date(today.setHours(15, 0, 0, 0)).toISOString(),
-    venue: "에티하드 스타디움",
-    weather: generateWeather(),
-  },
-  {
-    id: "match-2",
-    homeTeam: mockTeams[2],
-    awayTeam: mockTeams[3],
-    matchTime: new Date(today.setHours(17, 30, 0, 0)).toISOString(),
-    venue: "안필드",
-    weather: generateWeather(),
-  },
-  {
-    id: "match-3",
-    homeTeam: mockTeams[4],
-    awayTeam: mockTeams[5],
-    matchTime: new Date(today.setHours(20, 0, 0, 0)).toISOString(),
-    venue: "올드 트래퍼드",
-    weather: generateWeather(),
-  },
-  {
-    id: "match-4",
-    homeTeam: mockTeams[6],
-    awayTeam: mockTeams[7],
-    matchTime: new Date(today.setHours(21, 0, 0, 0)).toISOString(),
-    venue: "세인트 제임스 파크",
-    weather: generateWeather(),
-  },
-  {
-    id: "match-5",
-    homeTeam: mockTeams[8],
-    awayTeam: mockTeams[9],
-    matchTime: new Date(today.setHours(22, 30, 0, 0)).toISOString(),
-    venue: "아멕스 스타디움",
-    weather: generateWeather(),
-  },
-];
 
-function calculateBaseProbability(homeTeam: Team, awayTeam: Team): WinDrawLossProbability {
-  const rankDiff = awayTeam.leagueRank - homeTeam.leagueRank;
-  const homeRecentWins = homeTeam.recentResults.filter(r => r === 'W').length;
-  const awayRecentWins = awayTeam.recentResults.filter(r => r === 'W').length;
+function createMatch(id: string, homeTeam: Team, awayTeam: Team, hours: number, minutes: number, venue: string): Match {
+  const probability = calculateBaseProbability(homeTeam, awayTeam);
+  const matchDate = new Date(today);
+  matchDate.setHours(hours, minutes, 0, 0);
   
-  let homeWin = 35 + (rankDiff * 2) + (homeRecentWins * 2) - (awayRecentWins * 1);
-  let awayWin = 35 - (rankDiff * 2) + (awayRecentWins * 2) - (homeRecentWins * 1);
-  
-  homeWin = Math.min(Math.max(homeWin, 15), 60);
-  awayWin = Math.min(Math.max(awayWin, 15), 60);
-  
-  const draw = 100 - homeWin - awayWin;
-  
-  return { homeWin, draw, awayWin };
+  return {
+    id,
+    homeTeam,
+    awayTeam,
+    matchTime: matchDate.toISOString(),
+    venue,
+    weather: generateWeather(),
+    odds: calculateOddsFromProbability(probability),
+  };
 }
+
+const mockMatches: Match[] = [
+  createMatch("match-1", mockTeams[0], mockTeams[1], 15, 0, "에티하드 스타디움"),
+  createMatch("match-2", mockTeams[2], mockTeams[3], 17, 30, "안필드"),
+  createMatch("match-3", mockTeams[4], mockTeams[5], 20, 0, "올드 트래퍼드"),
+  createMatch("match-4", mockTeams[6], mockTeams[7], 21, 0, "세인트 제임스 파크"),
+  createMatch("match-5", mockTeams[8], mockTeams[9], 22, 30, "아멕스 스타디움"),
+];
 
 function calculateCore1(homeTeam: Team, awayTeam: Team): AnalysisCore {
   const rankDiff = awayTeam.leagueRank - homeTeam.leagueRank;

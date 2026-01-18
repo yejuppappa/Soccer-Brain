@@ -60,25 +60,42 @@ export function MatchCard({ match, onClick, probability }: MatchCardProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0" data-testid="probability-badges">
-          <Badge 
-            className="bg-destructive text-destructive-foreground font-bold text-xs px-2 py-1"
-            data-testid="badge-home-win"
-          >
-            {probability.homeWin}%
-          </Badge>
-          <Badge 
-            className="bg-muted text-muted-foreground font-bold text-xs px-2 py-1"
-            data-testid="badge-draw"
-          >
-            {probability.draw}%
-          </Badge>
-          <Badge 
-            className="bg-primary text-primary-foreground font-bold text-xs px-2 py-1"
-            data-testid="badge-away-win"
-          >
-            {probability.awayWin}%
-          </Badge>
+        <div className="flex flex-col items-center gap-1 shrink-0" data-testid="probability-badges">
+          <div className="flex items-center gap-1">
+            <Badge 
+              className="bg-destructive text-destructive-foreground font-bold text-xs px-2 py-1"
+              data-testid="badge-home-win"
+            >
+              {probability.homeWin}%
+            </Badge>
+            <Badge 
+              className="bg-muted text-muted-foreground font-bold text-xs px-2 py-1"
+              data-testid="badge-draw"
+            >
+              {probability.draw}%
+            </Badge>
+            <Badge 
+              className="bg-primary text-primary-foreground font-bold text-xs px-2 py-1"
+              data-testid="badge-away-win"
+            >
+              {probability.awayWin}%
+            </Badge>
+          </div>
+          
+          <div className="flex flex-col items-center gap-0.5 mt-1" data-testid="odds-section">
+            <div className="flex items-center gap-1 text-xs">
+              <span className="text-foreground font-medium">Betman</span>
+              <span className="font-mono text-foreground/80">
+                {match.odds.domestic[0].toFixed(2)} | {match.odds.domestic[1].toFixed(2)} | {match.odds.domestic[2].toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span>Bet365</span>
+              <span className="font-mono">
+                {match.odds.overseas[0].toFixed(2)} | {match.odds.overseas[1].toFixed(2)} | {match.odds.overseas[2].toFixed(2)}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 flex items-center gap-2 min-w-0 justify-end" data-testid="team-away">

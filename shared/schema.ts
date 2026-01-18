@@ -42,6 +42,11 @@ export interface Team {
   lastMatchDaysAgo: number;
 }
 
+export interface Odds {
+  domestic: [number, number, number];
+  overseas: [number, number, number];
+}
+
 export interface Match {
   id: string;
   homeTeam: Team;
@@ -49,6 +54,7 @@ export interface Match {
   matchTime: string;
   venue: string;
   weather: Weather;
+  odds: Odds;
 }
 
 // Win/Draw/Loss Probability Structure
