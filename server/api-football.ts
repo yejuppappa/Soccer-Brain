@@ -404,6 +404,47 @@ export async function fetchStandingsForSeason(season: number = 2023): Promise<Ma
   return standings;
 }
 
+// Fetch detailed statistics for a specific fixture
+export interface FixtureStatistics {
+  team: { id: number; name: string };
+  statistics: Array<{ type: string; value: string | number | null }>;
+}
+
+export async function fetchFixtureStatistics(fixtureId: number): Promise<FixtureStatistics[]> {
+  try {
+    const response = await apiClient.get("/fixtures/statistics", {
+      params: { fixture: fixtureId },
+    });
+    
+    return response.data.response || [];
+  } catch (error: any) {
+    console.error(`[API-Football] Stats fetch failed for fixture ${fixtureId}:`, error.message);
+    throw error;
+  }
+}
+
+// Fetch lineup data for a specific fixture
+export interface FixtureLineup {
+  team: { id: number; name: string; logo: string };
+  formation: string;
+  startXI: Array<{ player: { id: number; name: string; number: number; pos: string } }>;
+  substitutes: Array<{ player: { id: number; name: string; number: number; pos: string } }>;
+  coach: { id: number; name: string };
+}
+
+export async function fetchFixtureLineups(fixtureId: number): Promise<FixtureLineup[]> {
+  try {
+    const response = await apiClient.get("/fixtures/lineups", {
+      params: { fixture: fixtureId },
+    });
+    
+    return response.data.response || [];
+  } catch (error: any) {
+    console.error(`[API-Football] Lineups fetch failed for fixture ${fixtureId}:`, error.message);
+    throw error;
+  }
+}
+
 export async function fetchHistoricalMatchesWithResults(): Promise<HistoricalMatchWithResult[]> {
   console.log("[API-Football] Fetching historical matches with results...");
   
