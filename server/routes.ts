@@ -6,11 +6,39 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  app.get("/api/matches", async (req, res) => {
+    try {
+      const matches = await storage.getMatches();
+      const today = new Date().toLocaleDateString("ko-KR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "long",
+      });
+      
+      res.json({
+        matches,
+        date: today,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch matches" });
+    }
+  });
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  app.get("/api/matches/:id/analysis", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const analysis = await storage.getMatchAnalysis(id);
+      
+      if (!analysis) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+      
+      res.json({ analysis });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch match analysis" });
+    }
+  });
 
   return httpServer;
 }
