@@ -314,6 +314,96 @@ export interface HistoricalMatchWithResult {
   awayForm: string;
 }
 
+export interface RawFixtureData {
+  fixtureId: number;
+  homeTeamId: number;
+  awayTeamId: number;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  actualResult: 'home_win' | 'draw' | 'away_win';
+  date: string;
+  venue: string;
+}
+
+export async function fetchCompletedFixtures(
+  fromDate: string,
+  toDate: string,
+  season: number = 2023
+): Promise<RawFixtureData[]> {
+  console.log(`[API-Football] Fetching completed fixtures from ${fromDate} to ${toDate}...`);
+  
+  try {
+    const response = await apiClient.get("/fixtures", {
+      params: {
+        league: PREMIER_LEAGUE_ID,
+        season,
+        from: fromDate,
+        to: toDate,
+        status: "FT",
+      },
+    });
+    
+    console.log(`[API-Football] Response: ${response.data.results} fixtures`);
+    
+    const fixtures = response.data.response || [];
+    
+    return fixtures.map((fixture: any) => {
+      const homeScore = fixture.goals?.home ?? 0;
+      const awayScore = fixture.goals?.away ?? 0;
+      
+      let actualResult: 'home_win' | 'draw' | 'away_win';
+      if (homeScore > awayScore) actualResult = 'home_win';
+      else if (homeScore < awayScore) actualResult = 'away_win';
+      else actualResult = 'draw';
+      
+      return {
+        fixtureId: fixture.fixture.id,
+        homeTeamId: fixture.teams.home.id,
+        awayTeamId: fixture.teams.away.id,
+        homeTeam: fixture.teams.home.name,
+        awayTeam: fixture.teams.away.name,
+        homeScore,
+        awayScore,
+        actualResult,
+        date: fixture.fixture.date,
+        venue: fixture.fixture.venue?.name || "Unknown",
+      };
+    });
+  } catch (error: any) {
+    console.error("[API-Football] fetchCompletedFixtures failed:", error.message);
+    throw error;
+  }
+}
+
+export async function fetchStandingsForSeason(season: number = 2023): Promise<Map<number, { rank: number; form: string }>> {
+  const standings = new Map<number, { rank: number; form: string }>();
+  
+  try {
+    const response = await apiClient.get("/standings", {
+      params: {
+        league: PREMIER_LEAGUE_ID,
+        season,
+      },
+    });
+    
+    const standingsData = response.data.response?.[0]?.league?.standings?.[0] || [];
+    standingsData.forEach((standing: ApiStanding) => {
+      standings.set(standing.team.id, {
+        rank: standing.rank,
+        form: standing.form || "DDDDD",
+      });
+    });
+    
+    console.log(`[API-Football] Got standings for ${standings.size} teams`);
+  } catch (error: any) {
+    console.error("[API-Football] Standings fetch failed:", error.message);
+  }
+  
+  return standings;
+}
+
 export async function fetchHistoricalMatchesWithResults(): Promise<HistoricalMatchWithResult[]> {
   console.log("[API-Football] Fetching historical matches with results...");
   
