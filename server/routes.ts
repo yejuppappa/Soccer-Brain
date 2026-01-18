@@ -1,15 +1,18 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { fetchHistoricalMatchesWithResults, fetchCompletedFixtures, fetchStandingsForSeason, isApiConfigured } from "./api-football";
+import { fetchHistoricalMatchesWithResults, fetchCompletedFixtures, fetchStandingsForSeason, isApiConfigured, fetchFixtureStatistics, fetchFixtureLineups } from "./api-football";
 import { 
   loadTrainingData, 
   saveTrainingData, 
   getExistingFixtureIds, 
   getTrainingDataStats,
+  getMatchesWithoutStats,
+  enrichMatchWithData,
   DAILY_QUOTA,
   type StoredTrainingMatch,
   type CollectionResult,
+  type EnrichedData,
 } from "./training-data-manager";
 
 export async function registerRoutes(
@@ -173,6 +176,96 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("[Routes] Training set download error:", error.message);
       res.status(500).json({ error: error.message || "Failed to download training set" });
+    }
+  });
+
+  // Enrich existing data with statistics and lineups (20 matches max, 1s delay)
+  app.post("/api/enrich-data", async (req, res) => {
+    const ENRICH_LIMIT = 20;
+    
+    try {
+      if (!isApiConfigured()) {
+        return res.status(400).json({ error: "API not configured" });
+      }
+      
+      const logs: string[] = [];
+      logs.push("데이터 고도화 시작...");
+      
+      // Load training data
+      const trainingData = await loadTrainingData();
+      const matchesToEnrich = getMatchesWithoutStats(trainingData, ENRICH_LIMIT);
+      
+      if (matchesToEnrich.length === 0) {
+        logs.push("이미 모든 데이터가 고품질입니다!");
+        return res.json({
+          enriched: 0,
+          total: trainingData.totalMatches,
+          logs,
+        });
+      }
+      
+      logs.push(`고도화 대상: ${matchesToEnrich.length}개 경기`);
+      
+      let enriched = 0;
+      let errors = 0;
+      
+      for (let i = 0; i < matchesToEnrich.length; i++) {
+        const match = matchesToEnrich[i];
+        logs.push(`[${i + 1}/${matchesToEnrich.length}] ${match.homeTeam} vs ${match.awayTeam} 처리 중...`);
+        
+        try {
+          // Fetch statistics
+          const statistics = await fetchFixtureStatistics(match.fixtureId);
+          
+          // 1 second delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Fetch lineups
+          const lineups = await fetchFixtureLineups(match.fixtureId);
+          
+          // 1 second delay before next match
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Merge data
+          const enrichedData: EnrichedData = {
+            statistics,
+            lineups,
+            enrichedAt: new Date().toISOString(),
+          };
+          
+          const success = await enrichMatchWithData(trainingData, match.fixtureId, enrichedData);
+          
+          if (success) {
+            enriched++;
+            const statsCount = statistics.length > 0 ? statistics[0].statistics?.length || 0 : 0;
+            logs.push(`  ✅ 통계: ${statsCount}개 항목, 라인업: ${lineups.length > 0 ? '있음' : '없음'}`);
+          } else {
+            errors++;
+            logs.push(`  ❌ 매치 데이터를 찾을 수 없음`);
+          }
+        } catch (error: any) {
+          errors++;
+          logs.push(`  ❌ API 오류: ${error.message}`);
+        }
+      }
+      
+      // Save updated training data
+      await saveTrainingData(trainingData);
+      
+      logs.push(`\n고도화 완료! ${enriched}개 경기 업그레이드됨`);
+      if (errors > 0) {
+        logs.push(`오류: ${errors}건`);
+      }
+      
+      res.json({
+        enriched,
+        errors,
+        total: trainingData.totalMatches,
+        logs,
+      });
+    } catch (error: any) {
+      console.error("[Routes] Enrich data error:", error.message);
+      res.status(500).json({ error: error.message || "Failed to enrich data" });
     }
   });
 

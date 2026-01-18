@@ -123,4 +123,44 @@ export async function getTrainingDataStats(): Promise<{
   };
 }
 
+export interface EnrichedData {
+  statistics?: Array<{
+    team: { id: number; name: string };
+    statistics: Array<{ type: string; value: string | number | null }>;
+  }>;
+  lineups?: Array<{
+    team: { id: number; name: string; logo: string };
+    formation: string;
+    startXI: Array<{ player: { id: number; name: string; number: number; pos: string } }>;
+    substitutes: Array<{ player: { id: number; name: string; number: number; pos: string } }>;
+    coach: { id: number; name: string };
+  }>;
+  enrichedAt?: string;
+}
+
+export function getMatchesWithoutStats(data: TrainingDataSet, limit: number = 20): StoredTrainingMatch[] {
+  return data.matches
+    .filter(m => {
+      const hasStats = (m as any).statistics && Array.isArray((m as any).statistics) && (m as any).statistics.length > 0;
+      return !hasStats;
+    })
+    .slice(0, limit);
+}
+
+export async function enrichMatchWithData(
+  data: TrainingDataSet,
+  fixtureId: number,
+  enrichedData: EnrichedData
+): Promise<boolean> {
+  const matchIndex = data.matches.findIndex(m => m.fixtureId === fixtureId);
+  if (matchIndex === -1) return false;
+  
+  // Merge enriched data into the match
+  (data.matches[matchIndex] as any).statistics = enrichedData.statistics || [];
+  (data.matches[matchIndex] as any).lineups = enrichedData.lineups || [];
+  (data.matches[matchIndex] as any).enrichedAt = new Date().toISOString();
+  
+  return true;
+}
+
 export { DAILY_QUOTA, TRAINING_DATA_PATH };
