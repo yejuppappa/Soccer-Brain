@@ -1,24 +1,25 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AnimatedProbabilityChart } from "@/components/animated-probability-chart";
-import { CoreAnalysisCard } from "@/components/core-analysis-card";
+import { ProbabilityGaugeBar } from "@/components/probability-gauge-bar";
+import { TeamPanel } from "@/components/team-panel";
+import { WeatherPanel } from "@/components/weather-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
-import type { MatchAnalysisResponse, AnalysisCore } from "@shared/schema";
+import type { MatchAnalysisResponse, WinDrawLossProbability } from "@shared/schema";
 
 export default function MatchAnalysis() {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   
+  const [isRaining, setIsRaining] = useState(false);
+  const [homeTeamFatigued, setHomeTeamFatigued] = useState(false);
+  const [homeKeyPlayerInjured, setHomeKeyPlayerInjured] = useState(false);
   const [awayTeamFatigued, setAwayTeamFatigued] = useState(false);
-  const [keyPlayerInjured, setKeyPlayerInjured] = useState(false);
-  const [previousProbability, setPreviousProbability] = useState<number | undefined>(undefined);
+  const [awayKeyPlayerInjured, setAwayKeyPlayerInjured] = useState(false);
 
   const { data, isLoading, error } = useQuery<MatchAnalysisResponse>({
     queryKey: ["/api/matches", params.id, "analysis"],
@@ -26,70 +27,57 @@ export default function MatchAnalysis() {
 
   const analysis = data?.analysis;
 
-  const calculatedProbability = useMemo(() => {
-    if (!analysis) return 0;
+  const calculatedProbability = useMemo((): WinDrawLossProbability => {
+    if (!analysis) return { homeWin: 33, draw: 34, awayWin: 33 };
     
-    let probability = analysis.baseWinProbability;
+    let { homeWin, draw, awayWin } = analysis.baseProbability;
+    
+    if (isRaining) {
+      const rainBonus = 8;
+      const homeReduction = Math.floor(rainBonus / 2);
+      const awayReduction = rainBonus - homeReduction;
+      homeWin -= homeReduction;
+      awayWin -= awayReduction;
+      draw += rainBonus;
+    }
+    
+    if (homeTeamFatigued) {
+      homeWin -= 10;
+      draw += 5;
+      awayWin += 5;
+    }
+    
+    if (homeKeyPlayerInjured) {
+      homeWin -= 15;
+      draw += 7;
+      awayWin += 8;
+    }
     
     if (awayTeamFatigued) {
-      probability -= 12;
+      awayWin -= 10;
+      draw += 5;
+      homeWin += 5;
     }
     
-    if (keyPlayerInjured) {
-      probability -= 20;
+    if (awayKeyPlayerInjured) {
+      awayWin -= 15;
+      draw += 7;
+      homeWin += 8;
     }
     
-    return Math.min(Math.max(probability, 5), 95);
-  }, [analysis, awayTeamFatigued, keyPlayerInjured]);
-
-  const cores = useMemo((): { core1: AnalysisCore; core2: AnalysisCore; core3: AnalysisCore } => {
-    if (!analysis) {
-      return {
-        core1: { name: "", description: "", baseValue: 0, adjustedValue: 0, isActive: false },
-        core2: { name: "", description: "", baseValue: 0, adjustedValue: 0, isActive: false },
-        core3: { name: "", description: "", baseValue: 0, adjustedValue: 0, isActive: false },
-      };
+    homeWin = Math.max(5, Math.min(80, homeWin));
+    awayWin = Math.max(5, Math.min(80, awayWin));
+    draw = 100 - homeWin - awayWin;
+    draw = Math.max(5, Math.min(60, draw));
+    
+    const total = homeWin + draw + awayWin;
+    if (total !== 100) {
+      const diff = 100 - total;
+      draw += diff;
     }
-
-    return {
-      core1: {
-        ...analysis.cores.core1,
-        isActive: true,
-      },
-      core2: {
-        ...analysis.cores.core2,
-        adjustedValue: awayTeamFatigued ? -12 : 0,
-        isActive: awayTeamFatigued,
-        description: awayTeamFatigued 
-          ? "홈 팀의 휴식 부족 (3일 미만)으로 경기력 저하" 
-          : "홈 팀 충분한 휴식, 피로도 변수 없음",
-      },
-      core3: {
-        ...analysis.cores.core3,
-        adjustedValue: keyPlayerInjured ? -20 : 0,
-        isActive: keyPlayerInjured,
-        description: keyPlayerInjured 
-          ? `핵심 선수 ${analysis.homeTeam.topScorer.name} 부상으로 득점력 약화` 
-          : `핵심 선수 ${analysis.homeTeam.topScorer.name} 정상 출전 가능`,
-      },
-    };
-  }, [analysis, awayTeamFatigued, keyPlayerInjured]);
-
-  useEffect(() => {
-    if (analysis) {
-      setPreviousProbability(calculatedProbability);
-    }
-  }, [awayTeamFatigued, keyPlayerInjured]);
-
-  const handleFatigueToggle = (checked: boolean) => {
-    setPreviousProbability(calculatedProbability);
-    setAwayTeamFatigued(checked);
-  };
-
-  const handleInjuryToggle = (checked: boolean) => {
-    setPreviousProbability(calculatedProbability);
-    setKeyPlayerInjured(checked);
-  };
+    
+    return { homeWin: Math.round(homeWin), draw: Math.round(draw), awayWin: Math.round(awayWin) };
+  }, [analysis, isRaining, homeTeamFatigued, homeKeyPlayerInjured, awayTeamFatigued, awayKeyPlayerInjured]);
 
   if (error) {
     return (
@@ -108,7 +96,7 @@ export default function MatchAnalysis() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-background border-b">
-        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <Button
             variant="ghost"
             size="icon"
@@ -124,110 +112,109 @@ export default function MatchAnalysis() {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-6xl mx-auto px-4 py-6">
         {isLoading ? (
-          <>
+          <div className="space-y-4">
             <Skeleton className="h-40 rounded-lg" />
             <Skeleton className="h-32 rounded-lg" />
-            <Skeleton className="h-24 rounded-lg" />
-            <Skeleton className="h-24 rounded-lg" />
-            <Skeleton className="h-24 rounded-lg" />
-          </>
+            <div className="grid lg:grid-cols-3 gap-4">
+              <Skeleton className="h-48 rounded-lg" />
+              <Skeleton className="h-48 rounded-lg" />
+              <Skeleton className="h-48 rounded-lg" />
+            </div>
+          </div>
         ) : (
-          <>
-            <Card className="p-6">
-              <AnimatedProbabilityChart
-                probability={calculatedProbability}
-                previousProbability={previousProbability}
-                showChange={previousProbability !== undefined && previousProbability !== calculatedProbability}
-              />
-            </Card>
-
-            <Card className="p-4" data-testid="card-controls">
-              <h3 className="font-bold text-sm mb-4 text-muted-foreground">시뮬레이션 변수 조절</h3>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <Label 
-                      htmlFor="fatigue-switch" 
-                      className="font-medium cursor-pointer"
-                    >
-                      홈팀 휴식 부족
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      휴식 3일 미만 시 승률 -12%
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {awayTeamFatigued && (
-                      <span className="text-xs font-bold text-destructive">-12%</span>
-                    )}
-                    <Switch
-                      id="fatigue-switch"
-                      checked={awayTeamFatigued}
-                      onCheckedChange={handleFatigueToggle}
-                      data-testid="switch-fatigue"
-                    />
-                  </div>
-                </div>
-
-                <div className="h-px bg-border" />
-
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <Label 
-                      htmlFor="injury-switch" 
-                      className="font-medium cursor-pointer"
-                    >
-                      핵심 선수 부상
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      득점 1위 선수 결장 시 승률 -20%
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {keyPlayerInjured && (
-                      <span className="text-xs font-bold text-destructive">-20%</span>
-                    )}
-                    <Switch
-                      id="injury-switch"
-                      checked={keyPlayerInjured}
-                      onCheckedChange={handleInjuryToggle}
-                      data-testid="switch-injury"
-                    />
-                  </div>
-                </div>
+          <div className="space-y-6">
+            <div className="grid lg:grid-cols-[1fr_2fr_1fr] gap-6">
+              <div className="order-2 lg:order-1">
+                <TeamPanel
+                  team={analysis!.homeTeam}
+                  isHome={true}
+                  isFatigued={homeTeamFatigued}
+                  isKeyPlayerInjured={homeKeyPlayerInjured}
+                  onFatigueChange={setHomeTeamFatigued}
+                  onInjuryChange={setHomeKeyPlayerInjured}
+                />
               </div>
-            </Card>
 
-            <div className="space-y-3">
-              <h3 className="font-bold text-sm text-muted-foreground px-1">Triple Core 분석</h3>
-              <CoreAnalysisCard core={cores.core1} coreNumber={1} />
-              <CoreAnalysisCard core={cores.core2} coreNumber={2} />
-              <CoreAnalysisCard core={cores.core3} coreNumber={3} />
+              <div className="order-1 lg:order-2">
+                <Card className="p-6">
+                  <h3 className="font-bold text-center mb-6 text-lg">승률 분석</h3>
+                  <ProbabilityGaugeBar
+                    probability={calculatedProbability}
+                    homeTeamName={analysis!.homeTeam.shortName}
+                    awayTeamName={analysis!.awayTeam.shortName}
+                  />
+                  
+                  <div className="mt-6 pt-4 border-t">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <div className="text-2xl font-bold text-destructive">{calculatedProbability.homeWin}%</div>
+                        <div className="text-xs text-muted-foreground mt-1">홈 승</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-muted-foreground">{calculatedProbability.draw}%</div>
+                        <div className="text-xs text-muted-foreground mt-1">무승부</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-primary">{calculatedProbability.awayWin}%</div>
+                        <div className="text-xs text-muted-foreground mt-1">원정 승</div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              <div className="order-3 lg:order-3">
+                <TeamPanel
+                  team={analysis!.awayTeam}
+                  isHome={false}
+                  isFatigued={awayTeamFatigued}
+                  isKeyPlayerInjured={awayKeyPlayerInjured}
+                  onFatigueChange={setAwayTeamFatigued}
+                  onInjuryChange={setAwayKeyPlayerInjured}
+                />
+              </div>
             </div>
 
-            <Card className="p-4 bg-muted/50">
-              <h4 className="font-bold text-sm mb-3">팀 정보</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+            <WeatherPanel
+              weather={analysis!.weather}
+              isRaining={isRaining}
+              onRainChange={setIsRaining}
+            />
+
+            <Card className="p-4 bg-muted/30">
+              <h4 className="font-bold text-sm mb-4">팀 상세 정보</h4>
+              <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <p className="text-muted-foreground text-xs mb-1">홈 팀</p>
-                  <p className="font-bold">{analysis?.homeTeam.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    리그 {analysis?.homeTeam.leagueRank}위 | 최근 5경기: {analysis?.homeTeam.recentResults.join("")}
-                  </p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-3 h-3 rounded-full bg-destructive" />
+                    <span className="font-bold">{analysis?.homeTeam.name}</span>
+                    <span className="text-xs text-muted-foreground">(홈)</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground space-y-1 pl-5">
+                    <p>리그 순위: {analysis?.homeTeam.leagueRank}위</p>
+                    <p>최근 5경기: {analysis?.homeTeam.recentResults.join(" ")}</p>
+                    <p>핵심 득점원: {analysis?.homeTeam.topScorer.name} ({analysis?.homeTeam.topScorer.goals}골)</p>
+                    <p>마지막 경기: {analysis?.homeTeam.lastMatchDaysAgo}일 전</p>
+                  </div>
                 </div>
                 <div>
-                  <p className="text-muted-foreground text-xs mb-1">원정 팀</p>
-                  <p className="font-bold">{analysis?.awayTeam.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    리그 {analysis?.awayTeam.leagueRank}위 | 최근 5경기: {analysis?.awayTeam.recentResults.join("")}
-                  </p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-3 h-3 rounded-full bg-primary" />
+                    <span className="font-bold">{analysis?.awayTeam.name}</span>
+                    <span className="text-xs text-muted-foreground">(원정)</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground space-y-1 pl-5">
+                    <p>리그 순위: {analysis?.awayTeam.leagueRank}위</p>
+                    <p>최근 5경기: {analysis?.awayTeam.recentResults.join(" ")}</p>
+                    <p>핵심 득점원: {analysis?.awayTeam.topScorer.name} ({analysis?.awayTeam.topScorer.goals}골)</p>
+                    <p>마지막 경기: {analysis?.awayTeam.lastMatchDaysAgo}일 전</p>
+                  </div>
                 </div>
               </div>
             </Card>
-          </>
+          </div>
         )}
       </main>
     </div>

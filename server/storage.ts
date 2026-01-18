@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore } from "@shared/schema";
+import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore, type Weather, type WeatherCondition, type WinDrawLossProbability } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -8,6 +8,34 @@ export interface IStorage {
   getMatches(): Promise<Match[]>;
   getMatchById(id: string): Promise<Match | undefined>;
   getMatchAnalysis(matchId: string): Promise<MatchAnalysis | undefined>;
+}
+
+function generateWeather(): Weather {
+  const conditions: WeatherCondition[] = ['sunny', 'cloudy', 'rainy', 'snowy'];
+  
+  const condition = conditions[Math.floor(Math.random() * conditions.length)];
+  let temperature: number;
+  
+  switch (condition) {
+    case 'sunny':
+      temperature = Math.floor(Math.random() * 15) + 15;
+      break;
+    case 'cloudy':
+      temperature = Math.floor(Math.random() * 10) + 10;
+      break;
+    case 'rainy':
+      temperature = Math.floor(Math.random() * 8) + 8;
+      break;
+    case 'snowy':
+      temperature = Math.floor(Math.random() * 5) - 2;
+      break;
+  }
+  
+  return {
+    condition,
+    temperature,
+    icon: condition,
+  };
 }
 
 const mockTeams: Team[] = [
@@ -111,6 +139,7 @@ const mockMatches: Match[] = [
     awayTeam: mockTeams[1],
     matchTime: new Date(today.setHours(15, 0, 0, 0)).toISOString(),
     venue: "에티하드 스타디움",
+    weather: generateWeather(),
   },
   {
     id: "match-2",
@@ -118,6 +147,7 @@ const mockMatches: Match[] = [
     awayTeam: mockTeams[3],
     matchTime: new Date(today.setHours(17, 30, 0, 0)).toISOString(),
     venue: "안필드",
+    weather: generateWeather(),
   },
   {
     id: "match-3",
@@ -125,6 +155,7 @@ const mockMatches: Match[] = [
     awayTeam: mockTeams[5],
     matchTime: new Date(today.setHours(20, 0, 0, 0)).toISOString(),
     venue: "올드 트래퍼드",
+    weather: generateWeather(),
   },
   {
     id: "match-4",
@@ -132,6 +163,7 @@ const mockMatches: Match[] = [
     awayTeam: mockTeams[7],
     matchTime: new Date(today.setHours(21, 0, 0, 0)).toISOString(),
     venue: "세인트 제임스 파크",
+    weather: generateWeather(),
   },
   {
     id: "match-5",
@@ -139,56 +171,61 @@ const mockMatches: Match[] = [
     awayTeam: mockTeams[9],
     matchTime: new Date(today.setHours(22, 30, 0, 0)).toISOString(),
     venue: "아멕스 스타디움",
+    weather: generateWeather(),
   },
 ];
 
+function calculateBaseProbability(homeTeam: Team, awayTeam: Team): WinDrawLossProbability {
+  const rankDiff = awayTeam.leagueRank - homeTeam.leagueRank;
+  const homeRecentWins = homeTeam.recentResults.filter(r => r === 'W').length;
+  const awayRecentWins = awayTeam.recentResults.filter(r => r === 'W').length;
+  
+  let homeWin = 35 + (rankDiff * 2) + (homeRecentWins * 2) - (awayRecentWins * 1);
+  let awayWin = 35 - (rankDiff * 2) + (awayRecentWins * 2) - (homeRecentWins * 1);
+  
+  homeWin = Math.min(Math.max(homeWin, 15), 60);
+  awayWin = Math.min(Math.max(awayWin, 15), 60);
+  
+  const draw = 100 - homeWin - awayWin;
+  
+  return { homeWin, draw, awayWin };
+}
+
 function calculateCore1(homeTeam: Team, awayTeam: Team): AnalysisCore {
   const rankDiff = awayTeam.leagueRank - homeTeam.leagueRank;
-  const recentWins = homeTeam.recentResults.filter(r => r === 'W').length;
-  const baseValue = Math.round((rankDiff * 2) + (recentWins * 3));
+  const homeRecentWins = homeTeam.recentResults.filter(r => r === 'W').length;
+  const awayRecentWins = awayTeam.recentResults.filter(r => r === 'W').length;
+  const baseValue = Math.round((rankDiff * 2) + (homeRecentWins - awayRecentWins) * 2);
   
   return {
     name: "기초 체력",
-    description: `홈 팀 리그 ${homeTeam.leagueRank}위, 최근 5경기 ${recentWins}승 기록`,
+    description: `홈 ${homeTeam.leagueRank}위(최근 ${homeRecentWins}승) vs 원정 ${awayTeam.leagueRank}위(최근 ${awayRecentWins}승)`,
     baseValue,
     adjustedValue: baseValue,
     isActive: true,
   };
 }
 
-function calculateCore2(awayTeam: Team, isFatigued: boolean): AnalysisCore {
-  const adjustedValue = isFatigued ? 12 : 0;
-  
+function createCore2(team: Team, isHome: boolean): AnalysisCore {
+  const teamType = isHome ? "홈팀" : "원정팀";
   return {
-    name: "피로도 변수",
-    description: isFatigued 
-      ? `원정 팀 휴식 ${awayTeam.lastMatchDaysAgo}일로 피로 누적` 
-      : `원정 팀 충분한 휴식 (${awayTeam.lastMatchDaysAgo}일)`,
+    name: `${teamType} 피로도`,
+    description: `${team.name} 휴식 ${team.lastMatchDaysAgo}일`,
     baseValue: 0,
-    adjustedValue,
-    isActive: isFatigued,
+    adjustedValue: 0,
+    isActive: false,
   };
 }
 
-function calculateCore3(homeTeam: Team, isInjured: boolean): AnalysisCore {
-  const adjustedValue = isInjured ? -20 : 0;
-  
+function createCore3(team: Team, isHome: boolean): AnalysisCore {
+  const teamType = isHome ? "홈팀" : "원정팀";
   return {
-    name: "핵심 선수 변수",
-    description: isInjured 
-      ? `${homeTeam.topScorer.name} (${homeTeam.topScorer.goals}골) 부상 결장` 
-      : `${homeTeam.topScorer.name} (${homeTeam.topScorer.goals}골) 정상 출전`,
+    name: `${teamType} 핵심 선수`,
+    description: `${team.topScorer.name} (${team.topScorer.goals}골)`,
     baseValue: 0,
-    adjustedValue,
-    isActive: isInjured,
+    adjustedValue: 0,
+    isActive: false,
   };
-}
-
-function calculateBaseWinProbability(homeTeam: Team, awayTeam: Team): number {
-  const rankDiff = awayTeam.leagueRank - homeTeam.leagueRank;
-  const recentWins = homeTeam.recentResults.filter(r => r === 'W').length;
-  const baseProb = 50 + (rankDiff * 2) + (recentWins * 3);
-  return Math.min(Math.max(baseProb, 25), 85);
 }
 
 export class MemStorage implements IStorage {
@@ -233,32 +270,27 @@ export class MemStorage implements IStorage {
     const match = await this.getMatchById(matchId);
     if (!match) return undefined;
 
-    const baseWinProbability = calculateBaseWinProbability(match.homeTeam, match.awayTeam);
-    const awayTeamFatigued = match.awayTeam.lastMatchDaysAgo < 3;
-    const keyPlayerInjured = match.homeTeam.topScorer.isInjured;
-
+    const baseProbability = calculateBaseProbability(match.homeTeam, match.awayTeam);
     const core1 = calculateCore1(match.homeTeam, match.awayTeam);
-    const core2 = calculateCore2(match.awayTeam, awayTeamFatigued);
-    const core3 = calculateCore3(match.homeTeam, keyPlayerInjured);
-
-    let adjustedProbability = baseWinProbability;
-    if (awayTeamFatigued) adjustedProbability += 12;
-    if (keyPlayerInjured) adjustedProbability -= 20;
-    adjustedProbability = Math.min(Math.max(adjustedProbability, 5), 95);
+    const core2Home = createCore2(match.homeTeam, true);
+    const core2Away = createCore2(match.awayTeam, false);
+    const core3Home = createCore3(match.homeTeam, true);
+    const core3Away = createCore3(match.awayTeam, false);
 
     return {
       matchId,
       homeTeam: match.homeTeam,
       awayTeam: match.awayTeam,
+      weather: match.weather,
       cores: {
         core1,
-        core2,
-        core3,
+        core2Home,
+        core2Away,
+        core3Home,
+        core3Away,
       },
-      baseWinProbability,
-      adjustedWinProbability: adjustedProbability,
-      awayTeamFatigued,
-      keyPlayerInjured,
+      baseProbability,
+      adjustedProbability: { ...baseProbability },
     };
   }
 }

@@ -1,15 +1,35 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Sun, Cloud, CloudRain, Snowflake } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Match } from "@shared/schema";
+import type { Match, WeatherCondition } from "@shared/schema";
 
 interface MatchCardProps {
   match: Match;
   onClick: () => void;
-  winProbability: number;
+  homeWinProbability: number;
 }
 
-export function MatchCard({ match, onClick, winProbability }: MatchCardProps) {
+const weatherLabels: Record<WeatherCondition, string> = {
+  sunny: 'Sunny',
+  cloudy: 'Cloudy',
+  rainy: 'Rain',
+  snowy: 'Snow',
+};
+
+function WeatherIcon({ condition }: { condition: WeatherCondition }) {
+  switch (condition) {
+    case 'sunny':
+      return <Sun className="h-3 w-3 text-warning" />;
+    case 'cloudy':
+      return <Cloud className="h-3 w-3 text-muted-foreground" />;
+    case 'rainy':
+      return <CloudRain className="h-3 w-3 text-primary" />;
+    case 'snowy':
+      return <Snowflake className="h-3 w-3 text-primary" />;
+  }
+}
+
+export function MatchCard({ match, onClick, homeWinProbability }: MatchCardProps) {
   const matchTime = new Date(match.matchTime);
   const timeString = matchTime.toLocaleTimeString("ko-KR", {
     hour: "2-digit",
@@ -18,9 +38,9 @@ export function MatchCard({ match, onClick, winProbability }: MatchCardProps) {
   });
 
   const getProbabilityColor = (prob: number) => {
-    if (prob >= 60) return "bg-success text-success-foreground";
-    if (prob >= 40) return "bg-primary text-primary-foreground";
-    return "bg-destructive text-destructive-foreground";
+    if (prob >= 50) return "bg-destructive text-destructive-foreground";
+    if (prob >= 35) return "bg-muted text-muted-foreground";
+    return "bg-primary text-primary-foreground";
   };
 
   return (
@@ -31,10 +51,15 @@ export function MatchCard({ match, onClick, winProbability }: MatchCardProps) {
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="text-xs text-muted-foreground font-medium">{timeString}</span>
             <span className="text-xs text-muted-foreground">|</span>
             <span className="text-xs text-muted-foreground">{match.venue}</span>
+            <span className="text-xs text-muted-foreground">|</span>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <WeatherIcon condition={match.weather.condition} />
+              {weatherLabels[match.weather.condition]}, {match.weather.temperature}°C
+            </span>
           </div>
           
           <div className="flex flex-col gap-1">
@@ -50,8 +75,8 @@ export function MatchCard({ match, onClick, winProbability }: MatchCardProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          <Badge className={`${getProbabilityColor(winProbability)} font-bold`}>
-            {winProbability}%
+          <Badge className={`${getProbabilityColor(homeWinProbability)} font-bold`}>
+            {homeWinProbability}%
           </Badge>
           <ChevronRight className="h-5 w-5 text-muted-foreground" />
         </div>

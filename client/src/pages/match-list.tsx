@@ -4,7 +4,7 @@ import { Trophy } from "lucide-react";
 import { MatchCard } from "@/components/match-card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { MatchListResponse } from "@shared/schema";
+import type { MatchListResponse, Team } from "@shared/schema";
 
 export default function MatchList() {
   const [, navigate] = useLocation();
@@ -13,11 +13,13 @@ export default function MatchList() {
     queryKey: ["/api/matches"],
   });
 
-  const calculateBaseWinProbability = (homeTeam: { leagueRank: number; recentResults: string[] }, awayTeam: { leagueRank: number }) => {
+  const calculateBaseWinProbability = (homeTeam: Team, awayTeam: Team) => {
     const rankDiff = awayTeam.leagueRank - homeTeam.leagueRank;
-    const recentWins = homeTeam.recentResults.filter(r => r === 'W').length;
-    const baseProb = 50 + (rankDiff * 2) + (recentWins * 3);
-    return Math.min(Math.max(baseProb, 25), 85);
+    const homeRecentWins = homeTeam.recentResults.filter(r => r === 'W').length;
+    const awayRecentWins = awayTeam.recentResults.filter(r => r === 'W').length;
+    
+    let homeWin = 35 + (rankDiff * 2) + (homeRecentWins * 2) - (awayRecentWins * 1);
+    return Math.min(Math.max(Math.round(homeWin), 15), 60);
   };
 
   if (error) {
@@ -59,14 +61,14 @@ export default function MatchList() {
         <div className="space-y-3">
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-lg" />
+              <Skeleton key={i} className="h-28 rounded-lg" />
             ))
           ) : (
             data?.matches.map((match) => (
               <MatchCard
                 key={match.id}
                 match={match}
-                winProbability={calculateBaseWinProbability(match.homeTeam, match.awayTeam)}
+                homeWinProbability={calculateBaseWinProbability(match.homeTeam, match.awayTeam)}
                 onClick={() => navigate(`/match/${match.id}`)}
               />
             ))

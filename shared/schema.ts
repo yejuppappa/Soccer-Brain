@@ -17,28 +17,44 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
-// Match and Team Types for Soccer Win Rate Simulator
+// Weather Types
+export type WeatherCondition = 'sunny' | 'cloudy' | 'rainy' | 'snowy';
 
+export interface Weather {
+  condition: WeatherCondition;
+  temperature: number;
+  icon: string;
+}
+
+// Match and Team Types for Soccer Win Rate Simulator
 export interface Team {
   id: string;
   name: string;
   shortName: string;
   leagueRank: number;
-  recentResults: ('W' | 'D' | 'L')[]; // Last 5 matches
+  recentResults: ('W' | 'D' | 'L')[];
   topScorer: {
     name: string;
     goals: number;
     isInjured: boolean;
   };
-  lastMatchDaysAgo: number; // Days since last match
+  lastMatchDaysAgo: number;
 }
 
 export interface Match {
   id: string;
   homeTeam: Team;
   awayTeam: Team;
-  matchTime: string; // ISO date string
+  matchTime: string;
   venue: string;
+  weather: Weather;
+}
+
+// Win/Draw/Loss Probability Structure
+export interface WinDrawLossProbability {
+  homeWin: number;
+  draw: number;
+  awayWin: number;
 }
 
 export interface AnalysisCore {
@@ -53,15 +69,16 @@ export interface MatchAnalysis {
   matchId: string;
   homeTeam: Team;
   awayTeam: Team;
+  weather: Weather;
   cores: {
-    core1: AnalysisCore; // Base performance
-    core2: AnalysisCore; // Fatigue factor
-    core3: AnalysisCore; // Key player factor
+    core1: AnalysisCore;
+    core2Home: AnalysisCore;
+    core2Away: AnalysisCore;
+    core3Home: AnalysisCore;
+    core3Away: AnalysisCore;
   };
-  baseWinProbability: number;
-  adjustedWinProbability: number;
-  awayTeamFatigued: boolean;
-  keyPlayerInjured: boolean;
+  baseProbability: WinDrawLossProbability;
+  adjustedProbability: WinDrawLossProbability;
 }
 
 // API Response types
@@ -74,9 +91,11 @@ export interface MatchAnalysisResponse {
   analysis: MatchAnalysis;
 }
 
-// Request types for analysis adjustments
-export interface AnalysisAdjustmentRequest {
-  matchId: string;
+// Simulation State
+export interface SimulationState {
+  isRaining: boolean;
+  homeTeamFatigued: boolean;
+  homeKeyPlayerInjured: boolean;
   awayTeamFatigued: boolean;
-  keyPlayerInjured: boolean;
+  awayKeyPlayerInjured: boolean;
 }
