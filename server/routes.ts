@@ -21,9 +21,23 @@ export async function registerRoutes(
       res.json({
         matches,
         date: today,
+        apiError: null,
       });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch matches" });
+    } catch (error: any) {
+      const errorMessage = error?.message || "Unknown error";
+      console.error("[Routes] /api/matches error:", errorMessage);
+      
+      res.status(500).json({ 
+        error: "API_ERROR",
+        apiError: errorMessage,
+        matches: [],
+        date: new Date().toLocaleDateString("ko-KR", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          weekday: "long",
+        }),
+      });
     }
   });
 

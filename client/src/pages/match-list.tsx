@@ -1,16 +1,25 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Trophy, Loader2 } from "lucide-react";
+import { Trophy, Loader2, AlertCircle } from "lucide-react";
 import { MatchCard } from "@/components/match-card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { MatchListResponse, Team, WinDrawLossProbability } from "@shared/schema";
+
+interface ApiErrorResponse {
+  error: string;
+  apiError: string;
+  matches: [];
+  date: string;
+}
 
 export default function MatchList() {
   const [, navigate] = useLocation();
 
-  const { data, isLoading, error } = useQuery<MatchListResponse>({
+  const { data, isLoading, error } = useQuery<MatchListResponse, Error, MatchListResponse | ApiErrorResponse>({
     queryKey: ["/api/matches"],
+    retry: false,
   });
 
   const calculateBaseProbability = (homeTeam: Team, awayTeam: Team): WinDrawLossProbability => {
@@ -28,12 +37,40 @@ export default function MatchList() {
     return { homeWin, draw, awayWin };
   };
 
-  if (error) {
+  const apiError = (data as ApiErrorResponse)?.apiError;
+  
+  if (error || apiError) {
+    const errorMsg = apiError || error?.message || "Unknown error";
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center">
-          <p className="text-destructive font-medium" data-testid="text-error">데이터를 불러오는데 실패했습니다</p>
-          <p className="text-sm text-muted-foreground mt-2">잠시 후 다시 시도해주세요</p>
+      <div className="min-h-screen bg-background p-4">
+        <header className="sticky top-0 z-50 bg-background border-b mb-6">
+          <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-6 w-6 text-primary" />
+              <h1 className="text-lg font-bold">축구 승률 분석</h1>
+            </div>
+            <ThemeToggle />
+          </div>
+        </header>
+        
+        <div className="max-w-lg mx-auto">
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>API Error</AlertTitle>
+            <AlertDescription className="mt-2 font-mono text-xs break-all" data-testid="text-api-error">
+              {errorMsg}
+            </AlertDescription>
+          </Alert>
+          
+          <div className="bg-destructive/10 border border-destructive rounded-lg p-4">
+            <p className="text-destructive font-bold text-lg mb-2">API 연동 실패</p>
+            <p className="text-destructive/80 text-sm mb-4">
+              Fallback(Mock Data)이 비활성화된 상태입니다. 아래 에러 내용을 확인하세요.
+            </p>
+            <pre className="bg-background text-foreground p-3 rounded text-xs overflow-auto whitespace-pre-wrap" data-testid="text-error-detail">
+              {errorMsg}
+            </pre>
+          </div>
         </div>
       </div>
     );

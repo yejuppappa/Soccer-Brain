@@ -96,6 +96,7 @@ export interface MatchAnalysis {
 export interface MatchListResponse {
   matches: Match[];
   date: string;
+  apiError?: string | null;
 }
 
 export interface MatchAnalysisResponse {

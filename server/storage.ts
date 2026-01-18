@@ -428,34 +428,42 @@ export class MemStorage implements IStorage {
     };
   }
 
+  private lastApiError: string | null = null;
+  
+  getLastApiError(): string | null {
+    return this.lastApiError;
+  }
+  
   async refreshMatchesFromApi(): Promise<void> {
     if (!isApiConfigured()) {
-      console.log("API not configured, using mock data");
-      return;
+      const msg = "API_SPORTS_KEY not configured in environment";
+      console.error("[Storage] " + msg);
+      this.lastApiError = msg;
+      throw new Error(msg);
     }
     
     const now = Date.now();
-    if (now - this.lastApiFetch < CACHE_TTL_MS) {
-      console.log("Using cached API data (TTL not expired)");
+    if (now - this.lastApiFetch < CACHE_TTL_MS && this.lastApiError === null) {
+      console.log("[Storage] Using cached API data (TTL not expired)");
       return;
     }
     
-    try {
-      console.log("Fetching matches from API-Football...");
-      const apiMatches = await fetchNextFixtures();
-      
-      if (apiMatches.length > 0) {
-        this.matches.clear();
-        apiMatches.forEach(match => {
-          this.matches.set(match.id, match);
-        });
-        this.lastApiFetch = now;
-        console.log(`Successfully loaded ${apiMatches.length} matches from API`);
-      } else {
-        console.log("No matches returned from API, keeping mock data");
-      }
-    } catch (error) {
-      console.error("Failed to fetch from API, keeping mock data:", error);
+    console.log("[Storage] Calling fetchNextFixtures...");
+    const apiMatches = await fetchNextFixtures();
+    
+    if (apiMatches.length > 0) {
+      this.matches.clear();
+      apiMatches.forEach(match => {
+        this.matches.set(match.id, match);
+      });
+      this.lastApiFetch = now;
+      this.lastApiError = null;
+      console.log(`[Storage] Successfully loaded ${apiMatches.length} matches from API`);
+    } else {
+      const msg = "API returned 0 fixtures (no upcoming matches found)";
+      console.log("[Storage] " + msg);
+      this.lastApiError = msg;
+      throw new Error(msg);
     }
   }
 }
