@@ -91,18 +91,35 @@ export async function getTrainingDataStats(): Promise<{
   totalMatches: number;
   lastUpdated: string;
   uniqueTeams: number;
+  highQualityCount: number;
+  basicDataCount: number;
 }> {
   const data = await loadTrainingData();
   const teams = new Set<string>();
+  let highQualityCount = 0;
+  let basicDataCount = 0;
+  
   data.matches.forEach(m => {
     teams.add(m.homeTeam);
     teams.add(m.awayTeam);
+    
+    // Check for statistics or lineups (high quality data)
+    const hasStats = (m as any).statistics && Array.isArray((m as any).statistics) && (m as any).statistics.length > 0;
+    const hasLineups = (m as any).lineups && Array.isArray((m as any).lineups) && (m as any).lineups.length > 0;
+    
+    if (hasStats || hasLineups) {
+      highQualityCount++;
+    } else {
+      basicDataCount++;
+    }
   });
   
   return {
     totalMatches: data.totalMatches,
     lastUpdated: data.lastUpdated,
     uniqueTeams: teams.size,
+    highQualityCount,
+    basicDataCount,
   };
 }
 

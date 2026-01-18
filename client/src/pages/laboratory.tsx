@@ -41,6 +41,8 @@ interface TrainingSetStats {
   totalMatches: number;
   lastUpdated: string;
   uniqueTeams: number;
+  highQualityCount: number;
+  basicDataCount: number;
 }
 
 interface CollectionResult {
@@ -244,18 +246,23 @@ export default function Laboratory() {
                 </p>
 
                 {trainingSetStats && (
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="bg-muted rounded-md p-2">
-                      <div className="text-xl font-bold">{trainingSetStats.totalMatches}</div>
-                      <div className="text-xs text-muted-foreground">저장된 경기</div>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-muted rounded-md p-2">
+                        <div className="text-xl font-bold">{trainingSetStats.totalMatches}</div>
+                        <div className="text-xs text-muted-foreground">총 데이터</div>
+                      </div>
+                      <div className="bg-muted rounded-md p-2">
+                        <div className="text-xl font-bold text-green-500">{trainingSetStats.highQualityCount}</div>
+                        <div className="text-xs text-muted-foreground">고품질(스탯)</div>
+                      </div>
+                      <div className="bg-muted rounded-md p-2">
+                        <div className="text-xl font-bold text-amber-500">{trainingSetStats.basicDataCount}</div>
+                        <div className="text-xs text-muted-foreground">기본(스코어)</div>
+                      </div>
                     </div>
-                    <div className="bg-muted rounded-md p-2">
-                      <div className="text-xl font-bold">{trainingSetStats.uniqueTeams}</div>
-                      <div className="text-xs text-muted-foreground">수집된 팀</div>
-                    </div>
-                    <div className="bg-muted rounded-md p-2">
-                      <div className="text-xl font-bold text-green-500">80</div>
-                      <div className="text-xs text-muted-foreground">일일 한도</div>
+                    <div className="text-xs text-muted-foreground text-center">
+                      팀 수: {trainingSetStats.uniqueTeams}개 | 일일 수집 한도: 80경기
                     </div>
                   </div>
                 )}
