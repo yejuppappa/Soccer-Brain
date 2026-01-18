@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Beaker, Play, CheckCircle2, XCircle, TrendingUp, AlertTriangle, Loader2, GraduationCap, RefreshCw, Database, Download, FileJson, Save } from "lucide-react";
+import { Beaker, Play, CheckCircle2, XCircle, TrendingUp, AlertTriangle, Loader2, GraduationCap, RefreshCw, Database, Download, FileJson, Save, Zap } from "lucide-react";
 import type { VariableType, TrainingResult, TrainingMatch } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
@@ -54,11 +54,19 @@ interface CollectionResult {
   quotaRemaining: number;
 }
 
+interface EnrichResult {
+  enriched: number;
+  errors: number;
+  total: number;
+  logs: string[];
+}
+
 export default function Laboratory() {
   const [trainingResult, setTrainingResult] = useState<TrainingResult | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
   const [collectionResult, setCollectionResult] = useState<CollectionResult | null>(null);
+  const [enrichResult, setEnrichResult] = useState<EnrichResult | null>(null);
   const [activeTab, setActiveTab] = useState<'training' | 'collection'>('training');
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -104,6 +112,26 @@ export default function Laboratory() {
       console.error("Data collection failed:", error);
     },
   });
+
+  const enrichMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/enrich-data");
+      return response.json();
+    },
+    onSuccess: (data: EnrichResult) => {
+      setEnrichResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/training-set/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/training-data"] });
+    },
+    onError: (error) => {
+      console.error("Data enrichment failed:", error);
+    },
+  });
+
+  const handleStartEnrich = () => {
+    setEnrichResult(null);
+    enrichMutation.mutate();
+  };
 
   const handleStartTraining = async () => {
     setTrainingResult(null);
@@ -295,8 +323,81 @@ export default function Laboratory() {
                     <RefreshCw className="h-4 w-4" />
                   </Button>
                 </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">데이터 고도화</span>
+                    <span className="text-xs text-muted-foreground">기본 → 고품질</span>
+                  </div>
+                  <Button
+                    onClick={handleStartEnrich}
+                    disabled={enrichMutation.isPending || (trainingSetStats?.basicDataCount === 0)}
+                    variant="outline"
+                    className="w-full border-amber-500/50 hover:bg-amber-500/10"
+                    data-testid="button-start-enrich"
+                  >
+                    {enrichMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        상세 정보 수집 중...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-4 w-4 mr-2" />
+                        데이터 고도화 (20경기 테스트)
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1 text-center">
+                    스탯/라인업 추가 수집 | API 호출: 40회 예상
+                  </p>
+                </div>
               </CardContent>
             </Card>
+
+            <AnimatePresence>
+              {enrichResult && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                >
+                  <Card className="border-amber-500/50">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2 text-amber-600">
+                        <Zap className="h-4 w-4" />
+                        고도화 완료
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-green-500/10 rounded-md p-2">
+                          <div className="text-lg font-bold text-green-600">{enrichResult.enriched}</div>
+                          <div className="text-xs text-muted-foreground">업그레이드</div>
+                        </div>
+                        <div className="bg-red-500/10 rounded-md p-2">
+                          <div className="text-lg font-bold text-red-600">{enrichResult.errors}</div>
+                          <div className="text-xs text-muted-foreground">오류</div>
+                        </div>
+                        <div className="bg-muted rounded-md p-2">
+                          <div className="text-lg font-bold">{enrichResult.total}</div>
+                          <div className="text-xs text-muted-foreground">총 데이터</div>
+                        </div>
+                      </div>
+                      <div className="bg-muted rounded-md p-3 max-h-40 overflow-y-auto">
+                        <div className="text-xs font-mono space-y-1">
+                          {enrichResult.logs.map((log, i) => (
+                            <div key={i} className={log.includes('✅') ? 'text-green-600' : log.includes('❌') ? 'text-red-500' : ''}>
+                              {log}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <AnimatePresence>
               {collectionResult && (
