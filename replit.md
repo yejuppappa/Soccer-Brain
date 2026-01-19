@@ -11,15 +11,18 @@ A mobile-first web application that analyzes soccer match win probabilities usin
 
 ### Interactive Features
 - Win/Draw/Loss horizontal gauge bar showing all three probabilities (always sums to 100%)
-- 3-section control panels: Environment (weather), Home Team, Away Team
-- Toggle switches to simulate weather, fatigue, and injury scenarios
-- Weather toggle: Rain adds +8% to draw probability
-- Fatigue toggle: -10% to affected team's win probability
-- Injury toggle: -15% to affected team's win probability
-- Real-time animated probability chart that updates when switches are toggled
-- Responsive desktop layout: 3-column grid (Home panel | Gauge | Away panel)
+- AI auto-detects factors (fatigue, form, weather, streaks) and displays as insight badges
+- No manual toggle switches - all factors are analyzed automatically
+- Real-time animated probability chart
+- Responsive desktop layout
 - Weather information displayed on match cards (icon + temperature)
 - Dark mode support
+
+### Odds Movement Visualization
+- Displays domestic and overseas betting odds with trend arrows (up/down/stable)
+- HOT tags appear on falling odds indicating "money flowing" (배당 하락 = 돈이 몰림)
+- Legend explaining trend meanings: up = decreasing popularity, down = increasing popularity
+- Three columns for home win, draw, and away win odds
 
 ## User Preferences
 
