@@ -47,7 +47,7 @@ function detectFactors(homeTeam: Team, awayTeam: Team, weather: Weather): Detect
     });
   }
 
-  // 🟢 홈 깡패 (Home Strong): Home win rate >= 60% (approximated from recent results)
+  // 🟢 홈 깡패 (Home Strong): 최근 5경기 승률 60% 이상 (홈 경기 데이터 별도 없어 전체 폼으로 근사)
   const homeWins = homeTeam.recentResults.filter(r => r === 'W').length;
   const homeWinRate = (homeWins / homeTeam.recentResults.length) * 100;
   if (homeWinRate >= 60) {
@@ -55,14 +55,14 @@ function detectFactors(homeTeam: Team, awayTeam: Team, weather: Weather): Detect
       id: 'home-strong',
       type: 'positive',
       team: 'home',
-      label: '홈 깡패',
-      description: `최근 ${homeWins}승 ${homeTeam.recentResults.length - homeWins}패`,
+      label: '폼 상승',
+      description: `최근 ${homeWins}승/${homeTeam.recentResults.length}경기`,
       impact: '+5%',
       icon: 'home_strong',
     });
   }
 
-  // 🔴 원정 약세 (Away Weak): Away win rate < 30%
+  // 🔴 원정 약세 (Away Weak): 최근 5경기 승률 30% 미만
   const awayWins = awayTeam.recentResults.filter(r => r === 'W').length;
   const awayWinRate = (awayWins / awayTeam.recentResults.length) * 100;
   if (awayWinRate < 30) {
@@ -70,20 +70,23 @@ function detectFactors(homeTeam: Team, awayTeam: Team, weather: Weather): Detect
       id: 'away-weak',
       type: 'negative',
       team: 'away',
-      label: '원정 약세',
-      description: `최근 ${awayWins}승 ${awayTeam.recentResults.length - awayWins}패`,
+      label: '부진 중',
+      description: `최근 ${awayWins}승/${awayTeam.recentResults.length}경기`,
       impact: '-8%',
       icon: 'away_weak',
     });
   }
 
-  // 🌧️ 악천후 (Bad Weather): Rain or Snow
-  if (weather.condition === 'rainy' || weather.condition === 'snowy') {
+  // 🌧️ 악천후 (Bad Weather): condition contains 'rain' or 'snow' (case-insensitive)
+  const weatherText = (weather.condition || '').toLowerCase();
+  const hasRain = weatherText.includes('rain');
+  const hasSnow = weatherText.includes('snow');
+  if (hasRain || hasSnow) {
     factors.push({
       id: 'bad-weather',
       type: 'neutral',
       team: 'match',
-      label: weather.condition === 'rainy' ? '비 예보' : '눈 예보',
+      label: hasSnow ? '눈 예보' : '비 예보',
       description: `${weather.temperature}°C`,
       impact: '무 +8%',
       icon: 'weather',
@@ -224,7 +227,7 @@ export function InsightCards({ homeTeam, awayTeam, weather }: InsightCardsProps)
                     flex items-center gap-1.5 py-1.5 px-3
                     ${factor.type === 'positive' 
                       ? 'border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400' 
-                      : 'border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400'}
+                      : 'border-destructive/50 bg-destructive/10 text-destructive'}
                   `}
                   data-testid={`badge-factor-${factor.id}`}
                 >
@@ -255,7 +258,7 @@ export function InsightCards({ homeTeam, awayTeam, weather }: InsightCardsProps)
                     flex items-center gap-1.5 py-1.5 px-3
                     ${factor.type === 'positive' 
                       ? 'border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400' 
-                      : 'border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400'}
+                      : 'border-primary/50 bg-primary/10 text-primary'}
                   `}
                   data-testid={`badge-factor-${factor.id}`}
                 >
