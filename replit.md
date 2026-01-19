@@ -17,6 +17,8 @@ A mobile-first web application that analyzes soccer match win probabilities usin
 - Responsive desktop layout
 - Weather information displayed on match cards (icon + temperature)
 - Dark mode support
+- Team power comparison radar chart (5 stats: ATT, DEF, ORG, FORM, GOAL)
+- AI predicted score badge with seeded randomization based on match data
 
 ### Odds Movement Visualization
 - Displays domestic and overseas betting odds with trend arrows (up/down/stable)
