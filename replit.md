@@ -102,17 +102,29 @@ The Laboratory feature analyzes past match predictions to improve AI accuracy:
 - **Insights**: System generates human-readable insights about weight adjustments
 
 ### Smart Data Collection System
-The Laboratory page includes a data collection feature for building training datasets:
+The admin page (/admin) includes a data collection feature for building training datasets:
 - **Fixture ID Deduplication**: Checks `training_set.json` for existing fixture IDs before saving
 - **Daily Quota**: Limits to 80 new matches per collection run to preserve API quota (100/day free limit)
 - **Append-Only Storage**: New data is appended to existing `training_set.json`, never overwrites
 - **Progress Logs**: Real-time logs showing collection status, duplicates skipped, and matches saved
 - **Date Range Batching**: Fetches 2023-24 season fixtures in monthly batches for efficiency
 
+### Auto-Mining Scheduler (Smart Cron)
+Automated data collection runs via node-cron scheduler:
+- **Cron Schedule**: Daily at 00:00 UTC for consistent data collection
+- **Server Startup**: Initial mining check runs 5 seconds after server start
+- **Rate Limit Safety**: Queries API `/status` endpoint before collection, stops if remaining < 5 calls
+- **Daily Limit Enforcement**: Maximum 80 matches per day, counter resets at midnight
+- **State Persistence**: Mining state saved to `mining_state.json` with run history
+- **Log History**: Stores last 50 log entries with timestamp, status, and message
+- **Statuses**: success (completed), stopped (quota limit), error (API failure), safe_mode (rate limit low)
+
 API Endpoints for Data Collection:
 - `GET /api/training-set/stats` - Returns { totalMatches, lastUpdated, uniqueTeams }
 - `GET /api/training-set` - Returns full training dataset
 - `POST /api/collect-data` - Runs smart collection with deduplication
+- `GET /api/mining-state` - Returns current mining scheduler state
+- `POST /api/trigger-mining` - Manually trigger mining task (admin only)
 
 ### API-Football Integration
 The app integrates with API-Football (https://www.api-football.com/) for real Premier League data:
