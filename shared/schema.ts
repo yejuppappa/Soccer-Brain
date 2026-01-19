@@ -81,6 +81,7 @@ export interface MatchAnalysis {
   homeTeam: Team;
   awayTeam: Team;
   weather: Weather;
+  odds: Odds;
   cores: {
     core1: AnalysisCore;
     core2Home: AnalysisCore;

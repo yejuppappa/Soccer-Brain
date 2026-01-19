@@ -343,6 +343,7 @@ export class MemStorage implements IStorage {
       homeTeam: match.homeTeam,
       awayTeam: match.awayTeam,
       weather: match.weather,
+      odds: match.odds,
       cores: {
         core1,
         core2Home,

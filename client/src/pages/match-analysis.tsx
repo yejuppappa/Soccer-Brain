@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProbabilityGaugeBar } from "@/components/probability-gauge-bar";
 import { InsightCards, detectFactors } from "@/components/insight-cards";
+import { OddsMovement } from "@/components/odds-movement";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { MatchAnalysisResponse, WinDrawLossProbability, WeatherCondition } from "@shared/schema";
 
@@ -231,6 +232,13 @@ export default function MatchAnalysis() {
               homeTeam={analysis!.homeTeam}
               awayTeam={analysis!.awayTeam}
               weather={analysis!.weather}
+            />
+
+            {/* Odds Movement Visualization */}
+            <OddsMovement
+              odds={analysis!.odds}
+              homeTeamName={analysis!.homeTeam.shortName}
+              awayTeamName={analysis!.awayTeam.shortName}
             />
 
             {/* Team Details */}
