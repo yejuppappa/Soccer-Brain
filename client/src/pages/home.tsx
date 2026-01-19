@@ -6,7 +6,126 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/theme-toggle";
-import type { MatchListResponse, Match } from "@shared/schema";
+import type { MatchListResponse, Match, WeatherCondition } from "@shared/schema";
+
+const MOCK_TEAMS = [
+  { id: "team-m1", name: "Manchester City", shortName: "MCI", logoUrl: "https://media.api-sports.io/football/teams/50.png", leagueRank: 1 },
+  { id: "team-m2", name: "Arsenal", shortName: "ARS", logoUrl: "https://media.api-sports.io/football/teams/42.png", leagueRank: 2 },
+  { id: "team-m3", name: "Liverpool", shortName: "LIV", logoUrl: "https://media.api-sports.io/football/teams/40.png", leagueRank: 3 },
+  { id: "team-m4", name: "Aston Villa", shortName: "AVL", logoUrl: "https://media.api-sports.io/football/teams/66.png", leagueRank: 4 },
+  { id: "team-m5", name: "Tottenham", shortName: "TOT", logoUrl: "https://media.api-sports.io/football/teams/47.png", leagueRank: 5 },
+  { id: "team-m6", name: "Chelsea", shortName: "CHE", logoUrl: "https://media.api-sports.io/football/teams/49.png", leagueRank: 6 },
+  { id: "team-m7", name: "Newcastle", shortName: "NEW", logoUrl: "https://media.api-sports.io/football/teams/34.png", leagueRank: 7 },
+  { id: "team-m8", name: "Manchester United", shortName: "MUN", logoUrl: "https://media.api-sports.io/football/teams/33.png", leagueRank: 8 },
+];
+
+function generateMockTopPicks(): { match: Match; probability: number; winner: 'home' | 'away' | 'draw' }[] {
+  const mockMatches: { match: Match; probability: number; winner: 'home' | 'away' | 'draw' }[] = [];
+  const highProbPairs = [
+    { homeIdx: 0, awayIdx: 7, probability: 85 },
+    { homeIdx: 2, awayIdx: 5, probability: 82 },
+    { homeIdx: 1, awayIdx: 6, probability: 80 },
+  ];
+  
+  highProbPairs.forEach((pair, i) => {
+    const home = MOCK_TEAMS[pair.homeIdx];
+    const away = MOCK_TEAMS[pair.awayIdx];
+    const matchDate = new Date();
+    matchDate.setDate(matchDate.getDate() + i);
+    
+    mockMatches.push({
+      match: {
+        id: `demo-top-${i + 1}`,
+        homeTeam: {
+          id: home.id,
+          name: home.name,
+          shortName: home.shortName,
+          logoUrl: home.logoUrl,
+          leagueRank: home.leagueRank,
+          recentResults: ['W', 'W', 'W', 'D', 'W'],
+          topScorer: { name: "Demo Player", goals: 15, isInjured: false },
+          lastMatchDaysAgo: 4,
+        },
+        awayTeam: {
+          id: away.id,
+          name: away.name,
+          shortName: away.shortName,
+          logoUrl: away.logoUrl,
+          leagueRank: away.leagueRank,
+          recentResults: ['L', 'D', 'L', 'W', 'L'],
+          topScorer: { name: "Demo Player", goals: 8, isInjured: false },
+          lastMatchDaysAgo: 5,
+        },
+        matchTime: matchDate.toISOString(),
+        venue: "Demo Stadium",
+        weather: { condition: 'sunny' as WeatherCondition, temperature: 18, icon: 'sunny' },
+        odds: {
+          domestic: [1.8, 3.5, 4.2],
+          overseas: [1.85, 3.6, 4.3],
+          domesticTrend: ['stable', 'stable', 'stable'] as [("up" | "down" | "stable"), ("up" | "down" | "stable"), ("up" | "down" | "stable")],
+          overseasTrend: ['stable', 'stable', 'stable'] as [("up" | "down" | "stable"), ("up" | "down" | "stable"), ("up" | "down" | "stable")],
+        },
+      },
+      probability: pair.probability,
+      winner: 'home',
+    });
+  });
+  
+  return mockMatches;
+}
+
+function generateMockDroppingOdds(): Match[] {
+  const droppingPairs = [
+    { homeIdx: 4, awayIdx: 3, dropHome: true },
+    { homeIdx: 5, awayIdx: 2, dropAway: true },
+    { homeIdx: 6, awayIdx: 1, dropHome: true },
+    { homeIdx: 7, awayIdx: 0, dropAway: true },
+  ];
+  
+  return droppingPairs.map((pair, i) => {
+    const home = MOCK_TEAMS[pair.homeIdx];
+    const away = MOCK_TEAMS[pair.awayIdx];
+    const matchDate = new Date();
+    matchDate.setDate(matchDate.getDate() + i);
+    
+    return {
+      id: `demo-drop-${i + 1}`,
+      homeTeam: {
+        id: home.id,
+        name: home.name,
+        shortName: home.shortName,
+        logoUrl: home.logoUrl,
+        leagueRank: home.leagueRank,
+        recentResults: ['W', 'D', 'W', 'L', 'W'],
+        topScorer: { name: "Demo Player", goals: 10, isInjured: false },
+        lastMatchDaysAgo: 3,
+      },
+      awayTeam: {
+        id: away.id,
+        name: away.name,
+        shortName: away.shortName,
+        logoUrl: away.logoUrl,
+        leagueRank: away.leagueRank,
+        recentResults: ['W', 'W', 'D', 'W', 'L'],
+        topScorer: { name: "Demo Player", goals: 12, isInjured: false },
+        lastMatchDaysAgo: 4,
+      },
+      matchTime: matchDate.toISOString(),
+      venue: "Demo Stadium",
+      weather: { condition: 'cloudy' as WeatherCondition, temperature: 15, icon: 'cloudy' },
+      odds: {
+        domestic: [2.1 + Math.random() * 0.5, 3.3, 3.8 + Math.random() * 0.5],
+        overseas: [2.2 + Math.random() * 0.5, 3.4, 3.9 + Math.random() * 0.5],
+        domesticTrend: [
+          pair.dropHome ? 'down' : 'stable',
+          'stable',
+          pair.dropAway ? 'down' : 'stable',
+        ] as [("up" | "down" | "stable"), ("up" | "down" | "stable"), ("up" | "down" | "stable")],
+        overseasTrend: ['stable', 'stable', 'stable'] as [("up" | "down" | "stable"), ("up" | "down" | "stable"), ("up" | "down" | "stable")],
+      },
+    };
+  });
+}
 
 function calculateWinProbability(match: Match): { probability: number; winner: 'home' | 'away' | 'draw' } {
   const homeRank = match.homeTeam.leagueRank;
@@ -51,28 +170,38 @@ export default function Home() {
     queryKey: ["/api/matches"],
   });
 
-  const topPicks = useMemo(() => {
-    if (!data?.matches) return [];
-    
-    return data.matches
-      .map(match => ({
-        match,
-        ...calculateWinProbability(match)
-      }))
-      .filter(item => item.probability >= 70)
-      .sort((a, b) => b.probability - a.probability)
-      .slice(0, 3);
+  const { topPicks, isTopPicksDemo } = useMemo(() => {
+    if (data?.matches && data.matches.length > 0) {
+      const realPicks = data.matches
+        .map(match => ({
+          match,
+          ...calculateWinProbability(match)
+        }))
+        .filter(item => item.probability >= 70)
+        .sort((a, b) => b.probability - a.probability)
+        .slice(0, 3);
+      
+      if (realPicks.length > 0) {
+        return { topPicks: realPicks, isTopPicksDemo: false };
+      }
+    }
+    return { topPicks: generateMockTopPicks(), isTopPicksDemo: true };
   }, [data?.matches]);
 
-  const droppingOdds = useMemo(() => {
-    if (!data?.matches) return [];
-    
-    return data.matches
-      .filter(match => {
-        const trends = match.odds.domesticTrend;
-        return trends.includes('down');
-      })
-      .slice(0, 4);
+  const { droppingOdds, isDroppingDemo } = useMemo(() => {
+    if (data?.matches && data.matches.length > 0) {
+      const realDropping = data.matches
+        .filter(match => {
+          const trends = match.odds.domesticTrend;
+          return trends.includes('down');
+        })
+        .slice(0, 4);
+      
+      if (realDropping.length > 0) {
+        return { droppingOdds: realDropping, isDroppingDemo: false };
+      }
+    }
+    return { droppingOdds: generateMockDroppingOdds(), isDroppingDemo: true };
   }, [data?.matches]);
 
   return (
@@ -116,6 +245,11 @@ export default function Home() {
             <Flame className="h-5 w-5 text-orange-500" />
             <h2 className="font-bold text-base">AI 추천 승부</h2>
             <Badge variant="secondary" className="text-xs">Top Picks</Badge>
+            {isTopPicksDemo && !isLoading && (
+              <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/50 bg-amber-500/10">
+                Demo
+              </Badge>
+            )}
           </div>
 
           {isLoading ? (
@@ -190,6 +324,11 @@ export default function Home() {
             <TrendingDown className="h-5 w-5 text-red-500" />
             <h2 className="font-bold text-base">배당 급락 포착</h2>
             <Badge variant="destructive" className="text-xs">HOT</Badge>
+            {isDroppingDemo && !isLoading && (
+              <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/50 bg-amber-500/10">
+                Demo
+              </Badge>
+            )}
           </div>
 
           {isLoading ? (
