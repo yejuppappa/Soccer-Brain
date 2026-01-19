@@ -366,7 +366,7 @@ export default function MatchAnalysis() {
 
             {/* Match Header with Weather */}
             <Card className="p-4">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between gap-4 mb-4">
                 <div className="flex items-center gap-3">
                   <img 
                     src={analysis!.homeTeam.logoUrl} 
@@ -401,7 +401,7 @@ export default function MatchAnalysis() {
               </div>
 
               {/* Recent Form Display */}
-              <div className="flex justify-between text-xs">
+              <div className="flex justify-between gap-2 text-xs">
                 <div className="flex gap-1">
                   {analysis!.homeTeam.recentResults.map((result, i) => (
                     <span 
@@ -528,57 +528,211 @@ export default function MatchAnalysis() {
                 <span className="w-1 h-4 bg-primary rounded-full" />
                 양 팀 맞대결 (H2H)
               </h4>
-              <div className="space-y-3">
-                {/* H2H Summary */}
-                <div className="grid grid-cols-3 gap-2 text-center py-3 bg-muted/30 rounded-lg">
-                  <div>
-                    <div className="text-xl font-bold text-destructive">3</div>
-                    <div className="text-xs text-muted-foreground">{analysis?.homeTeam.shortName} 승</div>
-                  </div>
-                  <div>
-                    <div className="text-xl font-bold text-muted-foreground">2</div>
-                    <div className="text-xs text-muted-foreground">무승부</div>
-                  </div>
-                  <div>
-                    <div className="text-xl font-bold text-primary">2</div>
-                    <div className="text-xs text-muted-foreground">{analysis?.awayTeam.shortName} 승</div>
-                  </div>
-                </div>
-                
-                {/* Recent H2H Matches */}
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground mb-2">최근 5경기 맞대결</p>
-                  {[
-                    { date: '2024.10.15', homeScore: 2, awayScore: 1, result: 'H' as const },
-                    { date: '2024.04.22', homeScore: 1, awayScore: 1, result: 'D' as const },
-                    { date: '2023.11.08', homeScore: 0, awayScore: 2, result: 'A' as const },
-                    { date: '2023.05.14', homeScore: 3, awayScore: 2, result: 'H' as const },
-                    { date: '2022.12.03', homeScore: 1, awayScore: 3, result: 'A' as const },
-                  ].map((match, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/20"
-                      data-testid={`row-h2h-${idx}`}
-                    >
-                      <span className="text-xs text-muted-foreground w-20">{match.date}</span>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-semibold ${match.result === 'H' ? 'text-destructive' : ''}`}>
-                          {match.homeScore}
-                        </span>
-                        <span className="text-xs text-muted-foreground">-</span>
-                        <span className={`text-sm font-semibold ${match.result === 'A' ? 'text-primary' : ''}`}>
-                          {match.awayScore}
-                        </span>
+              <div className="space-y-4">
+                {/* H2H Bar Chart Visualization */}
+                {(() => {
+                  const homeWins = 3;
+                  const draws = 2;
+                  const awayWins = 2;
+                  const total = homeWins + draws + awayWins;
+                  const homePercent = Math.round((homeWins / total) * 100);
+                  const drawPercent = Math.round((draws / total) * 100);
+                  const awayPercent = 100 - homePercent - drawPercent;
+                  
+                  return (
+                    <div className="space-y-2" data-testid="h2h-bar-chart">
+                      {/* Team Labels */}
+                      <div className="flex justify-between gap-2 text-sm font-medium">
+                        <span className="text-destructive">{analysis?.homeTeam.shortName}</span>
+                        <span className="text-blue-600 dark:text-blue-400">{analysis?.awayTeam.shortName}</span>
                       </div>
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                        match.result === 'H' ? 'bg-green-500' : 
-                        match.result === 'D' ? 'bg-gray-400' : 
-                        'bg-red-500'
-                      }`}>
-                        {match.result === 'H' ? 'H' : match.result === 'D' ? 'D' : 'A'}
+                      
+                      {/* Stacked Bar */}
+                      <div className="h-8 flex rounded-lg overflow-hidden">
+                        <div 
+                          className="bg-green-500 flex items-center justify-center text-white text-xs font-bold transition-all"
+                          style={{ width: `${homePercent}%` }}
+                        >
+                          {homeWins}승
+                        </div>
+                        <div 
+                          className="bg-gray-400 flex items-center justify-center text-white text-xs font-bold transition-all"
+                          style={{ width: `${drawPercent}%` }}
+                        >
+                          {draws}무
+                        </div>
+                        <div 
+                          className="bg-red-500 flex items-center justify-center text-white text-xs font-bold transition-all"
+                          style={{ width: `${awayPercent}%` }}
+                        >
+                          {awayWins}승
+                        </div>
+                      </div>
+                      
+                      {/* Percentage Labels */}
+                      <div className="flex justify-between gap-2 text-xs text-muted-foreground">
+                        <span>{homePercent}%</span>
+                        <span className="text-center">{drawPercent}% 무승부</span>
+                        <span>{awayPercent}%</span>
                       </div>
                     </div>
-                  ))}
+                  );
+                })()}
+                
+                {/* Recent H2H Matches Timeline */}
+                <div className="space-y-2 mt-4">
+                  <p className="text-xs text-muted-foreground mb-3">최근 5경기 맞대결</p>
+                  <div className="relative">
+                    {/* Timeline Line */}
+                    <div className="absolute left-3 top-3 bottom-3 w-0.5 bg-border" />
+                    
+                    {[
+                      { date: '2024.10.15', homeScore: 2, awayScore: 1, result: 'H' as const },
+                      { date: '2024.04.22', homeScore: 1, awayScore: 1, result: 'D' as const },
+                      { date: '2023.11.08', homeScore: 0, awayScore: 2, result: 'A' as const },
+                      { date: '2023.05.14', homeScore: 3, awayScore: 2, result: 'H' as const },
+                      { date: '2022.12.03', homeScore: 1, awayScore: 3, result: 'A' as const },
+                    ].map((match, idx) => (
+                      <div 
+                        key={idx} 
+                        className="relative flex items-center gap-4 py-2"
+                        data-testid={`row-h2h-${idx}`}
+                      >
+                        {/* Timeline Dot */}
+                        <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${
+                          match.result === 'H' ? 'bg-green-500' : 
+                          match.result === 'D' ? 'bg-gray-400' : 
+                          'bg-red-500'
+                        }`}>
+                          {match.result}
+                        </div>
+                        
+                        {/* Match Info */}
+                        <div className="flex-1 flex items-center justify-between gap-2 bg-muted/20 rounded-md px-3 py-2">
+                          <span className="text-xs text-muted-foreground">{match.date}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-bold ${match.result === 'H' ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
+                              {match.homeScore}
+                            </span>
+                            <span className="text-xs text-muted-foreground">vs</span>
+                            <span className={`text-sm font-bold ${match.result === 'A' ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+                              {match.awayScore}
+                            </span>
+                          </div>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                            match.result === 'H' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 
+                            match.result === 'D' ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300' : 
+                            'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                          }`}>
+                            {match.result === 'H' ? '홈 승' : match.result === 'D' ? '무승부' : '원정 승'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Recent 5 Games Timeline for Each Team */}
+            <Card className="p-4" data-testid="section-recent-form">
+              <h4 className="font-bold text-sm mb-4 flex items-center gap-2">
+                <span className="w-1 h-4 bg-primary rounded-full" />
+                최근 5경기 결과
+              </h4>
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Home Team Recent Form */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-3 h-3 rounded-full bg-destructive" />
+                    <span className="font-semibold text-sm">{analysis?.homeTeam.shortName}</span>
+                  </div>
+                  <div className="relative pl-4">
+                    {/* Vertical Timeline Line */}
+                    <div className="absolute left-1.5 top-1 bottom-1 w-0.5 bg-border" />
+                    
+                    {[
+                      { date: '01.15', opponent: 'CHE', score: '2-1', result: 'W' as const },
+                      { date: '01.08', opponent: 'NEW', score: '0-0', result: 'D' as const },
+                      { date: '01.01', opponent: 'MUN', score: '3-1', result: 'W' as const },
+                      { date: '12.26', opponent: 'TOT', score: '1-2', result: 'L' as const },
+                      { date: '12.20', opponent: 'BRI', score: '4-0', result: 'W' as const },
+                    ].map((game, idx) => (
+                      <div 
+                        key={idx} 
+                        className="relative flex items-center gap-3 py-1.5"
+                        data-testid={`timeline-home-${idx}`}
+                      >
+                        {/* Timeline Dot */}
+                        <div className={`relative z-10 w-4 h-4 rounded-full flex-shrink-0 ${
+                          game.result === 'W' ? 'bg-green-500' : 
+                          game.result === 'D' ? 'bg-gray-400' : 
+                          'bg-red-500'
+                        }`} />
+                        
+                        {/* Game Info */}
+                        <div className="flex-1 flex items-center justify-between gap-2 text-sm">
+                          <span className="text-xs text-muted-foreground w-12">{game.date}</span>
+                          <span className="text-xs font-medium">vs {game.opponent}</span>
+                          <span className="font-semibold">{game.score}</span>
+                          <span className={`text-xs font-bold w-6 text-center ${
+                            game.result === 'W' ? 'text-green-600 dark:text-green-400' : 
+                            game.result === 'D' ? 'text-gray-500' : 
+                            'text-red-600 dark:text-red-400'
+                          }`}>
+                            {game.result}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Away Team Recent Form */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-3 h-3 rounded-full bg-primary" />
+                    <span className="font-semibold text-sm">{analysis?.awayTeam.shortName}</span>
+                  </div>
+                  <div className="relative pl-4">
+                    {/* Vertical Timeline Line */}
+                    <div className="absolute left-1.5 top-1 bottom-1 w-0.5 bg-border" />
+                    
+                    {[
+                      { date: '01.15', opponent: 'EVE', score: '1-1', result: 'D' as const },
+                      { date: '01.08', opponent: 'WHU', score: '2-0', result: 'W' as const },
+                      { date: '01.01', opponent: 'CRY', score: '1-3', result: 'L' as const },
+                      { date: '12.26', opponent: 'BUR', score: '2-1', result: 'W' as const },
+                      { date: '12.20', opponent: 'FUL', score: '0-1', result: 'L' as const },
+                    ].map((game, idx) => (
+                      <div 
+                        key={idx} 
+                        className="relative flex items-center gap-3 py-1.5"
+                        data-testid={`timeline-away-${idx}`}
+                      >
+                        {/* Timeline Dot */}
+                        <div className={`relative z-10 w-4 h-4 rounded-full flex-shrink-0 ${
+                          game.result === 'W' ? 'bg-green-500' : 
+                          game.result === 'D' ? 'bg-gray-400' : 
+                          'bg-red-500'
+                        }`} />
+                        
+                        {/* Game Info */}
+                        <div className="flex-1 flex items-center justify-between gap-2 text-sm">
+                          <span className="text-xs text-muted-foreground w-12">{game.date}</span>
+                          <span className="text-xs font-medium">vs {game.opponent}</span>
+                          <span className="font-semibold">{game.score}</span>
+                          <span className={`text-xs font-bold w-6 text-center ${
+                            game.result === 'W' ? 'text-green-600 dark:text-green-400' : 
+                            game.result === 'D' ? 'text-gray-500' : 
+                            'text-red-600 dark:text-red-400'
+                          }`}>
+                            {game.result}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </Card>
