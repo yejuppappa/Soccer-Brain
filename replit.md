@@ -24,6 +24,18 @@ A mobile-first web application that analyzes soccer match win probabilities usin
 - History page with daily accuracy line chart (Recharts) and prediction records
 - My page with user vs AI accuracy comparison bar chart
 
+### Pick Selection & AI Combination Analyzer
+- **Global Pick State (PickContext)**: Shopping cart pattern for selecting match predictions
+- **Odds-Centric Schedule Cards**: 홈승/무승부/원정승 buttons with trend indicators (HOT badge on falling odds)
+- **Floating FAB Button**: Shows "분석함" with selected picks count at bottom right
+- **AI Analysis Drawer**: Slide-up panel showing picked matches with total odds and AI combination analysis
+- **Analysis Logic**: Provides success/warning messages based on pick combination (high odds warning, draw count, etc.)
+
+### 광장 (Live) Community Tab
+- **Live Scoreboard**: Real-time match scores with status indicators (전반/하프타임/후반)
+- **Real-time Chat**: Mock chat messages with auto-population, user can send messages
+- **Match Selection**: Click scoreboards to switch chat rooms between matches
+
 ### Odds Movement Visualization
 - Displays domestic and overseas betting odds with trend arrows (up/down/stable)
 - HOT tags appear on falling odds indicating "money flowing" (배당 하락 = 돈이 몰림)
@@ -54,9 +66,9 @@ Preferred communication style: Simple, everyday language.
 
 The frontend follows a page-based structure with reusable components:
 - `/` - Home dashboard with AI Top Picks and Dropping Odds
-- `/schedule` - Match schedule list showing today's games
+- `/schedule` - Match schedule with odds-centric cards (홈승/무승부/원정승 buttons) and pick selection
 - `/match/:id` - Detailed match analysis with lineup badge, voting, and probability controls
-- `/lab` - AI Virtual Match Simulator for user-facing team comparisons
+- `/live` - 광장 (Live) page with live scoreboards and real-time chat
 - `/history` - AI prediction accuracy tracking with line chart and prediction records
 - `/my` - User profile with accuracy comparison chart and settings
 - `/admin` - Hidden admin page (URL-only access) for data collection and AI training
@@ -64,8 +76,8 @@ The frontend follows a page-based structure with reusable components:
 ### Bottom Tab Navigation
 Five main tabs at bottom of screen:
 - **홈 (Home)**: Main dashboard with Soccer Brain header, ticker banner, AI Top Picks, Dropping Odds
-- **일정 (Schedule)**: Full match schedule list with weather and form indicators
-- **실험실 (Lab)**: AI 가상 매치 시뮬레이터 - select two EPL teams and run virtual match simulation
+- **일정 (Schedule)**: Full match schedule list with odds-centric buttons and pick selection
+- **광장 (Live)**: Live scoreboard and real-time community chat room
 - **적중내역 (History)**: AI prediction accuracy line chart and prediction records list
 - **마이 (My)**: User vs AI accuracy comparison bar chart and settings
 

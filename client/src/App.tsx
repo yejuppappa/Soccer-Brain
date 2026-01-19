@@ -5,12 +5,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BottomTabNavigation } from "@/components/bottom-tab-navigation";
 import { SportProvider } from "@/contexts/sport-context";
+import { PickProvider } from "@/contexts/pick-context";
 import { SportSelector } from "@/components/sport-selector";
+import { PickFAB } from "@/components/pick-fab";
+import { AnalysisDrawer } from "@/components/analysis-drawer";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Schedule from "@/pages/schedule";
 import MatchAnalysis from "@/pages/match-analysis";
-import Laboratory from "@/pages/laboratory";
+import Live from "@/pages/live";
 import History from "@/pages/history";
 import My from "@/pages/my";
 import Admin from "@/pages/admin";
@@ -21,7 +24,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/schedule" component={Schedule} />
       <Route path="/match/:id" component={MatchAnalysis} />
-      <Route path="/lab" component={Laboratory} />
+      <Route path="/live" component={Live} />
       <Route path="/history" component={History} />
       <Route path="/my" component={My} />
       <Route path="/admin" component={Admin} />
@@ -35,14 +38,18 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <SportProvider>
-          <div className="flex flex-col min-h-screen">
-            <SportSelector />
-            <div className="flex-1">
-              <Router />
+          <PickProvider>
+            <div className="flex flex-col min-h-screen">
+              <SportSelector />
+              <div className="flex-1">
+                <Router />
+              </div>
+              <BottomTabNavigation />
+              <PickFAB />
+              <AnalysisDrawer />
             </div>
-            <BottomTabNavigation />
-          </div>
-          <Toaster />
+            <Toaster />
+          </PickProvider>
         </SportProvider>
       </TooltipProvider>
     </QueryClientProvider>

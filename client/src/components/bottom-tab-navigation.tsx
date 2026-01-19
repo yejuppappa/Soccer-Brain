@@ -1,4 +1,4 @@
-import { Home, Calendar, Beaker, Trophy, User } from "lucide-react";
+import { Home, Calendar, MessageSquare, Trophy, User } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface TabItem {
@@ -10,7 +10,7 @@ interface TabItem {
 const tabs: TabItem[] = [
   { path: "/", label: "홈", icon: Home },
   { path: "/schedule", label: "일정", icon: Calendar },
-  { path: "/lab", label: "실험실", icon: Beaker },
+  { path: "/live", label: "광장", icon: MessageSquare },
   { path: "/history", label: "적중내역", icon: Trophy },
   { path: "/my", label: "마이", icon: User },
 ];
