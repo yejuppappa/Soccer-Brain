@@ -222,7 +222,7 @@ export function AnalysisReport({ homeTeam, awayTeam, weather, probability }: Ana
               <span className="w-2 h-2 rounded-full bg-yellow-500" />
               <span className="text-xs font-medium text-zinc-400">기상 영향</span>
             </div>
-            <p className="text-zinc-300 pl-4" data-testid="text-weather-analysis">
+            <p className="text-zinc-300 pl-4 whitespace-pre-wrap break-words" data-testid="text-weather-analysis">
               {weatherAnalysis}
             </p>
           </div>

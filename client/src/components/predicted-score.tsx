@@ -9,12 +9,20 @@ interface PredictedScoreProps {
   probability: WinDrawLossProbability;
 }
 
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
 function generatePredictedScore(
   homeTeam: Team,
   awayTeam: Team,
   probability: WinDrawLossProbability
 ): { home: number; away: number } {
   const { homeWin, draw, awayWin } = probability;
+  
+  const seed = homeTeam.id.charCodeAt(5) + awayTeam.id.charCodeAt(5) + homeWin + awayWin;
+  const randomFactor = seededRandom(seed);
   
   const homeGoalPower = homeTeam.topScorer.goals / 10;
   const awayGoalPower = awayTeam.topScorer.goals / 10;
@@ -25,22 +33,24 @@ function generatePredictedScore(
   let homeGoals = 0;
   let awayGoals = 0;
   
+  const randomAdjust = Math.floor(randomFactor * 2);
+  
   if (homeWin >= awayWin + 20) {
-    homeGoals = Math.min(4, Math.max(2, Math.round(1.5 + homeGoalPower + homeWins * 0.2)));
-    awayGoals = Math.max(0, Math.round(0.5 + awayGoalPower * 0.5));
+    homeGoals = Math.min(4, Math.max(1, Math.round(1.5 + homeGoalPower + homeWins * 0.2 + randomFactor)));
+    awayGoals = Math.max(0, Math.round(0.3 + awayGoalPower * 0.5 + (randomFactor > 0.6 ? 1 : 0)));
   } else if (awayWin >= homeWin + 20) {
-    homeGoals = Math.max(0, Math.round(0.5 + homeGoalPower * 0.5));
-    awayGoals = Math.min(4, Math.max(2, Math.round(1.5 + awayGoalPower + awayWins * 0.2)));
+    homeGoals = Math.max(0, Math.round(0.3 + homeGoalPower * 0.5 + (randomFactor > 0.7 ? 1 : 0)));
+    awayGoals = Math.min(4, Math.max(1, Math.round(1.5 + awayGoalPower + awayWins * 0.2 + randomFactor)));
   } else if (draw >= 30 || Math.abs(homeWin - awayWin) < 10) {
-    const baseGoals = Math.round(1 + (homeGoalPower + awayGoalPower) / 4);
+    const baseGoals = Math.round(1 + randomFactor * 1.5);
     homeGoals = baseGoals;
     awayGoals = baseGoals;
   } else if (homeWin > awayWin) {
-    homeGoals = Math.min(3, Math.max(1, Math.round(1 + homeGoalPower + (homeWin - awayWin) / 30)));
-    awayGoals = Math.max(0, Math.round(0.8 + awayGoalPower * 0.6));
+    homeGoals = Math.min(3, Math.max(1, Math.round(1 + homeGoalPower + (homeWin - awayWin) / 30 + randomFactor * 0.5)));
+    awayGoals = Math.max(0, Math.round(0.5 + awayGoalPower * 0.6 + (randomAdjust > 0 ? 1 : 0)));
   } else {
-    homeGoals = Math.max(0, Math.round(0.8 + homeGoalPower * 0.6));
-    awayGoals = Math.min(3, Math.max(1, Math.round(1 + awayGoalPower + (awayWin - homeWin) / 30)));
+    homeGoals = Math.max(0, Math.round(0.5 + homeGoalPower * 0.6 + (randomAdjust > 0 ? 1 : 0)));
+    awayGoals = Math.min(3, Math.max(1, Math.round(1 + awayGoalPower + (awayWin - homeWin) / 30 + randomFactor * 0.5)));
   }
   
   return { home: homeGoals, away: awayGoals };
