@@ -1,9 +1,11 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
-import { ArrowLeft, AlertTriangle, CloudRain, Sun, Cloud, Snowflake } from "lucide-react";
+import { ArrowLeft, AlertTriangle, CloudRain, Sun, Cloud, Snowflake, CheckCircle2, Clock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProbabilityGaugeBar } from "@/components/probability-gauge-bar";
 import { InsightCards, detectFactors } from "@/components/insight-cards";
@@ -12,7 +14,8 @@ import { AnalysisReport } from "@/components/analysis-report";
 import { TeamRadarChart } from "@/components/team-radar-chart";
 import { PredictedScore } from "@/components/predicted-score";
 import { ThemeToggle } from "@/components/theme-toggle";
-import type { MatchAnalysisResponse, WinDrawLossProbability, WeatherCondition } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { MatchAnalysisResponse, WinDrawLossProbability, WeatherCondition, VoteChoice, UserVote } from "@shared/schema";
 
 function WeatherIcon({ condition }: { condition: WeatherCondition }) {
   switch (condition) {
@@ -30,12 +33,51 @@ function WeatherIcon({ condition }: { condition: WeatherCondition }) {
 export default function MatchAnalysis() {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
+  const [showLineupNotice, setShowLineupNotice] = useState(false);
+  const [selectedVote, setSelectedVote] = useState<VoteChoice | null>(null);
 
   const { data, isLoading, error } = useQuery<MatchAnalysisResponse>({
     queryKey: ["/api/matches", params.id, "analysis"],
   });
 
+  // Fetch existing vote for this match
+  const { data: voteData } = useQuery<{ vote: UserVote | null }>({
+    queryKey: ["/api/votes", params.id],
+    enabled: !!params.id,
+  });
+
+  // Submit vote mutation
+  const voteMutation = useMutation({
+    mutationFn: async (choice: VoteChoice) => {
+      return apiRequest("POST", "/api/votes", { matchId: params.id, choice });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/votes", params.id] });
+    },
+  });
+
   const analysis = data?.analysis;
+
+  // Show lineup confirmation notice if confirmed
+  useEffect(() => {
+    if (analysis?.lineup?.status === 'confirmed') {
+      setShowLineupNotice(true);
+      const timer = setTimeout(() => setShowLineupNotice(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [analysis?.lineup?.status]);
+
+  // Set selected vote from existing vote data
+  useEffect(() => {
+    if (voteData?.vote) {
+      setSelectedVote(voteData.vote.choice);
+    }
+  }, [voteData]);
+
+  const handleVote = (choice: VoteChoice) => {
+    setSelectedVote(choice);
+    voteMutation.mutate(choice);
+  };
 
   const calculatedProbability = useMemo((): WinDrawLossProbability => {
     if (!analysis) return { homeWin: 33, draw: 34, awayWin: 33 };
@@ -135,6 +177,39 @@ export default function MatchAnalysis() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Lineup Confirmation Notice Animation */}
+            <AnimatePresence>
+              {showLineupNotice && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="bg-green-500/20 border border-green-500/40 rounded-lg p-3 flex items-center gap-2"
+                  data-testid="notice-lineup-confirmed"
+                >
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                    확정 라인업 반영 완료
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Lineup Status Badge */}
+            <div className="flex justify-center" data-testid="badge-lineup-status">
+              {analysis?.lineup?.status === 'confirmed' ? (
+                <Badge className="bg-green-500 text-white border-0 gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  확정 라인업
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="gap-1">
+                  <Clock className="h-3 w-3" />
+                  예상 라인업
+                </Badge>
+              )}
+            </div>
+
             {/* Match Header with Weather */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-4">
@@ -291,6 +366,60 @@ export default function MatchAnalysis() {
                   </div>
                 </div>
               </div>
+            </Card>
+
+            {/* Voting Section */}
+            <Card className="p-6" data-testid="section-voting">
+              <h3 className="font-bold text-center mb-4 text-lg">승부 예측 투표</h3>
+              <p className="text-sm text-muted-foreground text-center mb-4">
+                이 경기의 결과를 예측해 보세요
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                <Button
+                  variant={selectedVote === 'home' ? 'default' : 'outline'}
+                  className={`flex flex-col gap-1 h-auto py-4 ${
+                    selectedVote === 'home' ? 'bg-destructive text-white border-destructive' : ''
+                  }`}
+                  onClick={() => handleVote('home')}
+                  disabled={voteMutation.isPending}
+                  data-testid="button-vote-home"
+                >
+                  <span className="text-lg font-bold">승</span>
+                  <span className="text-xs">{analysis!.homeTeam.shortName}</span>
+                </Button>
+                <Button
+                  variant={selectedVote === 'draw' ? 'default' : 'outline'}
+                  className={`flex flex-col gap-1 h-auto py-4 ${
+                    selectedVote === 'draw' ? 'bg-gray-500 text-white border-gray-500' : ''
+                  }`}
+                  onClick={() => handleVote('draw')}
+                  disabled={voteMutation.isPending}
+                  data-testid="button-vote-draw"
+                >
+                  <span className="text-lg font-bold">무</span>
+                  <span className="text-xs">무승부</span>
+                </Button>
+                <Button
+                  variant={selectedVote === 'away' ? 'default' : 'outline'}
+                  className={`flex flex-col gap-1 h-auto py-4 ${
+                    selectedVote === 'away' ? 'bg-primary text-white border-primary' : ''
+                  }`}
+                  onClick={() => handleVote('away')}
+                  disabled={voteMutation.isPending}
+                  data-testid="button-vote-away"
+                >
+                  <span className="text-lg font-bold">패</span>
+                  <span className="text-xs">{analysis!.awayTeam.shortName}</span>
+                </Button>
+              </div>
+              {selectedVote && (
+                <div className="mt-4 text-center">
+                  <Badge variant="secondary" className="gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    투표 완료
+                  </Badge>
+                </div>
+              )}
             </Card>
 
             {/* AI Comprehensive Analysis Report */}

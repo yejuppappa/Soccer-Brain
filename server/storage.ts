@@ -365,12 +365,19 @@ export class MemStorage implements IStorage {
     const core3Home = createCore3(match.homeTeam, true);
     const core3Away = createCore3(match.awayTeam, false);
 
+    // Simulate lineup status (random for demo: ~30% confirmed, 70% predicted)
+    const isConfirmed = Math.random() < 0.3;
+    const lineup: LineupInfo = isConfirmed 
+      ? { status: 'confirmed', confirmedAt: new Date().toISOString() }
+      : { status: 'predicted' };
+
     return {
       matchId,
       homeTeam: match.homeTeam,
       awayTeam: match.awayTeam,
       weather: match.weather,
       odds: match.odds,
+      lineup,
       cores: {
         core1,
         core2Home,
