@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Bell, Brain, TrendingDown, Flame, ChevronRight, Sparkles } from "lucide-react";
+import { Bell, Brain, TrendingDown, Flame, ChevronRight, Sparkles, Megaphone } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,7 +59,7 @@ export default function Home() {
         match,
         ...calculateWinProbability(match)
       }))
-      .filter(item => item.probability >= 60)
+      .filter(item => item.probability >= 70)
       .sort((a, b) => b.probability - a.probability)
       .slice(0, 3);
   }, [data?.matches]);
@@ -103,7 +103,7 @@ export default function Home() {
           data-testid="ticker-banner"
         >
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-lg">📢</span>
+            <Megaphone className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             <span className="font-medium text-amber-700 dark:text-amber-400">
               어제 AI 예측 적중률 80% 달성! (4/5)
             </span>
@@ -150,8 +150,8 @@ export default function Home() {
                     <Badge 
                       className={`${
                         probability >= 70 
-                          ? 'bg-green-500 hover:bg-green-600' 
-                          : 'bg-blue-500 hover:bg-blue-600'
+                          ? 'bg-green-500' 
+                          : 'bg-blue-500'
                       } text-white border-0`}
                     >
                       {probability}%
