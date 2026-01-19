@@ -298,6 +298,76 @@ export async function registerRoutes(
     }
   });
 
+  // Vote endpoints
+  app.post("/api/votes", async (req, res) => {
+    try {
+      const { matchId, choice } = req.body;
+      if (!matchId || !choice) {
+        return res.status(400).json({ error: "matchId and choice are required" });
+      }
+      if (!['home', 'draw', 'away'].includes(choice)) {
+        return res.status(400).json({ error: "Invalid choice. Must be 'home', 'draw', or 'away'" });
+      }
+      const vote = await storage.submitVote(matchId, choice);
+      res.json({ vote });
+    } catch (error: any) {
+      console.error("[Routes] Vote submission error:", error.message);
+      res.status(500).json({ error: error.message || "Failed to submit vote" });
+    }
+  });
+
+  app.get("/api/votes/:matchId", async (req, res) => {
+    try {
+      const { matchId } = req.params;
+      const vote = await storage.getVoteForMatch(matchId);
+      res.json({ vote: vote || null });
+    } catch (error: any) {
+      console.error("[Routes] Vote fetch error:", error.message);
+      res.status(500).json({ error: error.message || "Failed to fetch vote" });
+    }
+  });
+
+  app.get("/api/votes", async (req, res) => {
+    try {
+      const votes = await storage.getAllVotes();
+      res.json({ votes });
+    } catch (error: any) {
+      console.error("[Routes] Votes fetch error:", error.message);
+      res.status(500).json({ error: error.message || "Failed to fetch votes" });
+    }
+  });
+
+  // Prediction records and accuracy endpoints
+  app.get("/api/prediction-records", async (req, res) => {
+    try {
+      const records = await storage.getPredictionRecords();
+      res.json({ records });
+    } catch (error: any) {
+      console.error("[Routes] Prediction records error:", error.message);
+      res.status(500).json({ error: error.message || "Failed to fetch prediction records" });
+    }
+  });
+
+  app.get("/api/daily-accuracy", async (req, res) => {
+    try {
+      const data = await storage.getDailyAccuracyData();
+      res.json({ data });
+    } catch (error: any) {
+      console.error("[Routes] Daily accuracy error:", error.message);
+      res.status(500).json({ error: error.message || "Failed to fetch daily accuracy" });
+    }
+  });
+
+  app.get("/api/user-stats", async (req, res) => {
+    try {
+      const stats = await storage.getUserStats();
+      res.json({ stats });
+    } catch (error: any) {
+      console.error("[Routes] User stats error:", error.message);
+      res.status(500).json({ error: error.message || "Failed to fetch user stats" });
+    }
+  });
+
   // Smart data collection with deduplication
   app.post("/api/collect-data", async (req, res) => {
     try {

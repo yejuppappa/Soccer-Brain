@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore, type Weather, type WeatherCondition, type WinDrawLossProbability, type Odds, type OddsTrend, type HistoricalMatch, type BacktestResult, type TuningWeight, type VariableType, type MatchResult, type TrainingResult } from "@shared/schema";
+import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore, type Weather, type WeatherCondition, type WinDrawLossProbability, type Odds, type OddsTrend, type HistoricalMatch, type BacktestResult, type TuningWeight, type VariableType, type MatchResult, type TrainingResult, type LineupInfo, type UserVote, type VoteChoice, type PredictionRecord, type DailyAccuracy, type UserStats } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { fetchNextFixtures, isApiConfigured, type HistoricalMatchWithResult } from "./api-football";
 
@@ -13,6 +13,13 @@ export interface IStorage {
   runBacktest(): Promise<BacktestResult>;
   refreshMatchesFromApi(): Promise<void>;
   runTrainingWithRealData(matches: HistoricalMatchWithResult[]): Promise<TrainingResult>;
+  // Vote & Prediction tracking
+  submitVote(matchId: string, choice: VoteChoice): Promise<UserVote>;
+  getVoteForMatch(matchId: string): Promise<UserVote | undefined>;
+  getAllVotes(): Promise<UserVote[]>;
+  getPredictionRecords(): Promise<PredictionRecord[]>;
+  getDailyAccuracyData(): Promise<DailyAccuracy[]>;
+  getUserStats(): Promise<UserStats>;
 }
 
 function generateWeather(): Weather {
@@ -284,18 +291,38 @@ const defaultTuningWeights: Record<VariableType, number> = {
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
 
+// Mock prediction records for history page
+const mockPredictionRecords: PredictionRecord[] = [
+  { id: "pred-1", matchId: "hist-1", matchTitle: "맨시티 vs 아스날", date: "2024-03-31", aiPrediction: "home", userPrediction: "home", actualResult: "draw", aiCorrect: false, userCorrect: false },
+  { id: "pred-2", matchId: "hist-2", matchTitle: "리버풀 vs 첼시", date: "2024-03-24", aiPrediction: "home", userPrediction: "away", actualResult: "home", aiCorrect: true, userCorrect: false },
+  { id: "pred-3", matchId: "hist-3", matchTitle: "토트넘 vs 맨유", date: "2024-03-17", aiPrediction: "home", userPrediction: "home", actualResult: "away", aiCorrect: false, userCorrect: false },
+  { id: "pred-4", matchId: "hist-4", matchTitle: "아스날 vs 리버풀", date: "2024-03-10", aiPrediction: "draw", userPrediction: "draw", actualResult: "draw", aiCorrect: true, userCorrect: true },
+  { id: "pred-5", matchId: "hist-5", matchTitle: "첼시 vs 뉴캐슬", date: "2024-03-03", aiPrediction: "home", userPrediction: "home", actualResult: "home", aiCorrect: true, userCorrect: true },
+  { id: "pred-6", matchId: "hist-6", matchTitle: "맨유 vs 맨시티", date: "2024-02-25", aiPrediction: "away", userPrediction: "away", actualResult: "away", aiCorrect: true, userCorrect: true },
+  { id: "pred-7", matchId: "hist-7", matchTitle: "뉴캐슬 vs 토트넘", date: "2024-02-18", aiPrediction: "draw", userPrediction: "home", actualResult: "home", aiCorrect: false, userCorrect: true },
+  { id: "pred-8", matchId: "hist-8", matchTitle: "아스날 vs 첼시", date: "2024-02-11", aiPrediction: "home", userPrediction: "away", actualResult: "home", aiCorrect: true, userCorrect: false },
+  { id: "pred-9", matchId: "hist-9", matchTitle: "리버풀 vs 맨시티", date: "2024-02-04", aiPrediction: "draw", userPrediction: "home", actualResult: "away", aiCorrect: false, userCorrect: false },
+  { id: "pred-10", matchId: "hist-10", matchTitle: "맨시티 vs 토트넘", date: "2024-01-28", aiPrediction: "home", userPrediction: "home", actualResult: "home", aiCorrect: true, userCorrect: true },
+  { id: "pred-11", matchId: "hist-11", matchTitle: "첼시 vs 리버풀", date: "2024-01-21", aiPrediction: "away", userPrediction: "draw", actualResult: "draw", aiCorrect: false, userCorrect: true },
+  { id: "pred-12", matchId: "hist-12", matchTitle: "토트넘 vs 아스날", date: "2024-01-14", aiPrediction: "draw", userPrediction: "away", actualResult: "away", aiCorrect: false, userCorrect: true },
+];
+
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private matches: Map<string, Match>;
   private historicalMatches: HistoricalMatch[];
   private tuningWeights: Record<VariableType, number>;
   private lastApiFetch: number = 0;
+  private userVotes: Map<string, UserVote>;
+  private predictionRecords: PredictionRecord[];
 
   constructor() {
     this.users = new Map();
     this.matches = new Map();
     this.historicalMatches = [...mockHistoricalMatches];
     this.tuningWeights = { ...defaultTuningWeights };
+    this.userVotes = new Map();
+    this.predictionRecords = [...mockPredictionRecords];
     
     mockMatches.forEach(match => {
       this.matches.set(match.id, match);
@@ -619,6 +646,80 @@ export class MemStorage implements IStorage {
       insights,
       matchDetails,
       completedAt: new Date().toISOString(),
+    };
+  }
+
+  // Vote & Prediction tracking methods
+  async submitVote(matchId: string, choice: VoteChoice): Promise<UserVote> {
+    const vote: UserVote = {
+      id: randomUUID(),
+      matchId,
+      choice,
+      votedAt: new Date().toISOString(),
+    };
+    this.userVotes.set(matchId, vote);
+    return vote;
+  }
+
+  async getVoteForMatch(matchId: string): Promise<UserVote | undefined> {
+    return this.userVotes.get(matchId);
+  }
+
+  async getAllVotes(): Promise<UserVote[]> {
+    return Array.from(this.userVotes.values());
+  }
+
+  async getPredictionRecords(): Promise<PredictionRecord[]> {
+    return this.predictionRecords;
+  }
+
+  async getDailyAccuracyData(): Promise<DailyAccuracy[]> {
+    // Group predictions by date and calculate daily accuracy
+    const dateMap = new Map<string, { total: number; aiCorrect: number; userCorrect: number }>();
+    
+    for (const record of this.predictionRecords) {
+      if (!dateMap.has(record.date)) {
+        dateMap.set(record.date, { total: 0, aiCorrect: 0, userCorrect: 0 });
+      }
+      const data = dateMap.get(record.date)!;
+      data.total++;
+      if (record.aiCorrect) data.aiCorrect++;
+      if (record.userCorrect) data.userCorrect++;
+    }
+    
+    return Array.from(dateMap.entries())
+      .map(([date, data]) => ({
+        date,
+        totalMatches: data.total,
+        aiCorrect: data.aiCorrect,
+        userCorrect: data.userCorrect,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  async getUserStats(): Promise<UserStats> {
+    const recordsWithUserVotes = this.predictionRecords.filter(r => r.userPrediction);
+    const totalVotes = recordsWithUserVotes.length;
+    
+    if (totalVotes === 0) {
+      return {
+        totalVotes: 0,
+        userCorrect: 0,
+        userAccuracy: 0,
+        aiCorrect: 0,
+        aiAccuracy: 0,
+      };
+    }
+    
+    const userCorrect = recordsWithUserVotes.filter(r => r.userCorrect).length;
+    const aiCorrect = recordsWithUserVotes.filter(r => r.aiCorrect).length;
+    
+    return {
+      totalVotes,
+      userCorrect,
+      userAccuracy: Math.round((userCorrect / totalVotes) * 100),
+      aiCorrect,
+      aiAccuracy: Math.round((aiCorrect / totalVotes) * 100),
     };
   }
 }
