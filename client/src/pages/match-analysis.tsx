@@ -1,25 +1,31 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, CloudRain, Sun, Cloud, Snowflake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProbabilityGaugeBar } from "@/components/probability-gauge-bar";
-import { TeamPanel } from "@/components/team-panel";
-import { WeatherPanel } from "@/components/weather-panel";
+import { InsightCards, detectFactors } from "@/components/insight-cards";
 import { ThemeToggle } from "@/components/theme-toggle";
-import type { MatchAnalysisResponse, WinDrawLossProbability } from "@shared/schema";
+import type { MatchAnalysisResponse, WinDrawLossProbability, WeatherCondition } from "@shared/schema";
+
+function WeatherIcon({ condition }: { condition: WeatherCondition }) {
+  switch (condition) {
+    case 'sunny':
+      return <Sun className="h-4 w-4 text-amber-500" />;
+    case 'cloudy':
+      return <Cloud className="h-4 w-4 text-muted-foreground" />;
+    case 'rainy':
+      return <CloudRain className="h-4 w-4 text-blue-500" />;
+    case 'snowy':
+      return <Snowflake className="h-4 w-4 text-blue-400" />;
+  }
+}
 
 export default function MatchAnalysis() {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  
-  const [isRaining, setIsRaining] = useState(false);
-  const [homeTeamFatigued, setHomeTeamFatigued] = useState(false);
-  const [homeKeyPlayerInjured, setHomeKeyPlayerInjured] = useState(false);
-  const [awayTeamFatigued, setAwayTeamFatigued] = useState(false);
-  const [awayKeyPlayerInjured, setAwayKeyPlayerInjured] = useState(false);
 
   const { data, isLoading, error } = useQuery<MatchAnalysisResponse>({
     queryKey: ["/api/matches", params.id, "analysis"],
@@ -32,37 +38,41 @@ export default function MatchAnalysis() {
     
     let { homeWin, draw, awayWin } = analysis.baseProbability;
     
-    if (isRaining) {
-      const rainBonus = 8;
-      const homeReduction = Math.floor(rainBonus / 2);
-      const awayReduction = rainBonus - homeReduction;
-      homeWin -= homeReduction;
-      awayWin -= awayReduction;
-      draw += rainBonus;
-    }
+    const factors = detectFactors(analysis.homeTeam, analysis.awayTeam, analysis.weather);
     
-    if (homeTeamFatigued) {
-      homeWin -= 10;
-      draw += 5;
-      awayWin += 5;
-    }
-    
-    if (homeKeyPlayerInjured) {
-      homeWin -= 15;
-      draw += 7;
-      awayWin += 8;
-    }
-    
-    if (awayTeamFatigued) {
-      awayWin -= 10;
-      draw += 5;
-      homeWin += 5;
-    }
-    
-    if (awayKeyPlayerInjured) {
-      awayWin -= 15;
-      draw += 7;
-      homeWin += 8;
+    for (const factor of factors) {
+      const impactValue = parseInt(factor.impact.replace(/[^-\d]/g, '')) || 0;
+      
+      if (factor.team === 'home') {
+        if (factor.type === 'positive') {
+          homeWin += Math.abs(impactValue);
+          awayWin -= Math.abs(impactValue) / 2;
+          draw -= Math.abs(impactValue) / 2;
+        } else if (factor.type === 'negative') {
+          homeWin -= Math.abs(impactValue);
+          awayWin += Math.abs(impactValue) / 2;
+          draw += Math.abs(impactValue) / 2;
+        }
+      } else if (factor.team === 'away') {
+        if (factor.type === 'positive') {
+          awayWin += Math.abs(impactValue);
+          homeWin -= Math.abs(impactValue) / 2;
+          draw -= Math.abs(impactValue) / 2;
+        } else if (factor.type === 'negative') {
+          awayWin -= Math.abs(impactValue);
+          homeWin += Math.abs(impactValue) / 2;
+          draw += Math.abs(impactValue) / 2;
+        }
+      } else if (factor.team === 'match') {
+        if (factor.icon === 'weather') {
+          const rainBonus = 8;
+          const homeReduction = Math.floor(rainBonus / 2);
+          const awayReduction = rainBonus - homeReduction;
+          homeWin -= homeReduction;
+          awayWin -= awayReduction;
+          draw += rainBonus;
+        }
+      }
     }
     
     homeWin = Math.max(5, Math.min(80, homeWin));
@@ -77,7 +87,7 @@ export default function MatchAnalysis() {
     }
     
     return { homeWin: Math.round(homeWin), draw: Math.round(draw), awayWin: Math.round(awayWin) };
-  }, [analysis, isRaining, homeTeamFatigued, homeKeyPlayerInjured, awayTeamFatigued, awayKeyPlayerInjured]);
+  }, [analysis]);
 
   if (error) {
     return (
@@ -96,7 +106,7 @@ export default function MatchAnalysis() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-background border-b">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <Button
             variant="ghost"
             size="icon"
@@ -112,77 +122,118 @@ export default function MatchAnalysis() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      <main className="max-w-4xl mx-auto px-4 py-6">
         {isLoading ? (
           <div className="space-y-4">
             <Skeleton className="h-40 rounded-lg" />
             <Skeleton className="h-32 rounded-lg" />
-            <div className="grid lg:grid-cols-3 gap-4">
-              <Skeleton className="h-48 rounded-lg" />
-              <Skeleton className="h-48 rounded-lg" />
-              <Skeleton className="h-48 rounded-lg" />
-            </div>
+            <Skeleton className="h-24 rounded-lg" />
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="grid lg:grid-cols-[1fr_2fr_1fr] gap-6">
-              <div className="order-2 lg:order-1">
-                <TeamPanel
-                  team={analysis!.homeTeam}
-                  isHome={true}
-                  isFatigued={homeTeamFatigued}
-                  isKeyPlayerInjured={homeKeyPlayerInjured}
-                  onFatigueChange={setHomeTeamFatigued}
-                  onInjuryChange={setHomeKeyPlayerInjured}
-                />
-              </div>
-
-              <div className="order-1 lg:order-2">
-                <Card className="p-6">
-                  <h3 className="font-bold text-center mb-6 text-lg">승률 분석</h3>
-                  <ProbabilityGaugeBar
-                    probability={calculatedProbability}
-                    homeTeamName={analysis!.homeTeam.shortName}
-                    awayTeamName={analysis!.awayTeam.shortName}
+            {/* Match Header with Weather */}
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <img 
+                    src={analysis!.homeTeam.logoUrl} 
+                    alt={analysis!.homeTeam.name}
+                    className="w-12 h-12 object-contain"
                   />
-                  
-                  <div className="mt-6 pt-4 border-t">
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div>
-                        <div className="text-2xl font-bold text-destructive">{calculatedProbability.homeWin}%</div>
-                        <div className="text-xs text-muted-foreground mt-1">홈 승</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-muted-foreground">{calculatedProbability.draw}%</div>
-                        <div className="text-xs text-muted-foreground mt-1">무승부</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-primary">{calculatedProbability.awayWin}%</div>
-                        <div className="text-xs text-muted-foreground mt-1">원정 승</div>
-                      </div>
-                    </div>
+                  <div>
+                    <div className="font-bold">{analysis!.homeTeam.name}</div>
+                    <div className="text-xs text-muted-foreground">홈 | {analysis!.homeTeam.leagueRank}위</div>
                   </div>
-                </Card>
+                </div>
+                
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground mb-1">vs</div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <WeatherIcon condition={analysis!.weather.condition} />
+                    <span>{analysis!.weather.temperature}°C</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <div className="font-bold">{analysis!.awayTeam.name}</div>
+                    <div className="text-xs text-muted-foreground">{analysis!.awayTeam.leagueRank}위 | 원정</div>
+                  </div>
+                  <img 
+                    src={analysis!.awayTeam.logoUrl} 
+                    alt={analysis!.awayTeam.name}
+                    className="w-12 h-12 object-contain"
+                  />
+                </div>
               </div>
 
-              <div className="order-3 lg:order-3">
-                <TeamPanel
-                  team={analysis!.awayTeam}
-                  isHome={false}
-                  isFatigued={awayTeamFatigued}
-                  isKeyPlayerInjured={awayKeyPlayerInjured}
-                  onFatigueChange={setAwayTeamFatigued}
-                  onInjuryChange={setAwayKeyPlayerInjured}
-                />
+              {/* Recent Form Display */}
+              <div className="flex justify-between text-xs">
+                <div className="flex gap-1">
+                  {analysis!.homeTeam.recentResults.map((result, i) => (
+                    <span 
+                      key={i}
+                      className={`
+                        w-5 h-5 rounded-full flex items-center justify-center font-bold text-white
+                        ${result === 'W' ? 'bg-green-500' : result === 'D' ? 'bg-gray-400' : 'bg-red-500'}
+                      `}
+                    >
+                      {result}
+                    </span>
+                  ))}
+                </div>
+                <span className="text-muted-foreground">최근 5경기</span>
+                <div className="flex gap-1">
+                  {analysis!.awayTeam.recentResults.map((result, i) => (
+                    <span 
+                      key={i}
+                      className={`
+                        w-5 h-5 rounded-full flex items-center justify-center font-bold text-white
+                        ${result === 'W' ? 'bg-green-500' : result === 'D' ? 'bg-gray-400' : 'bg-red-500'}
+                      `}
+                    >
+                      {result}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
+            </Card>
 
-            <WeatherPanel
+            {/* Probability Analysis */}
+            <Card className="p-6">
+              <h3 className="font-bold text-center mb-6 text-lg">AI 승률 분석</h3>
+              <ProbabilityGaugeBar
+                probability={calculatedProbability}
+                homeTeamName={analysis!.homeTeam.shortName}
+                awayTeamName={analysis!.awayTeam.shortName}
+              />
+              
+              <div className="mt-6 pt-4 border-t">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-destructive">{calculatedProbability.homeWin}%</div>
+                    <div className="text-xs text-muted-foreground mt-1">홈 승</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-muted-foreground">{calculatedProbability.draw}%</div>
+                    <div className="text-xs text-muted-foreground mt-1">무승부</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-primary">{calculatedProbability.awayWin}%</div>
+                    <div className="text-xs text-muted-foreground mt-1">원정 승</div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* AI Auto-Detected Insight Cards */}
+            <InsightCards
+              homeTeam={analysis!.homeTeam}
+              awayTeam={analysis!.awayTeam}
               weather={analysis!.weather}
-              isRaining={isRaining}
-              onRainChange={setIsRaining}
             />
 
+            {/* Team Details */}
             <Card className="p-4 bg-muted/30">
               <h4 className="font-bold text-sm mb-4">팀 상세 정보</h4>
               <div className="grid md:grid-cols-2 gap-6">
