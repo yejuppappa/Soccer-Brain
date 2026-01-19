@@ -56,17 +56,25 @@ The frontend follows a page-based structure with reusable components:
 - `/` - Home dashboard with AI Top Picks and Dropping Odds
 - `/schedule` - Match schedule list showing today's games
 - `/match/:id` - Detailed match analysis with lineup badge, voting, and probability controls
-- `/lab` - Laboratory page for backtesting AI predictions against historical data
+- `/lab` - AI Virtual Match Simulator for user-facing team comparisons
 - `/history` - AI prediction accuracy tracking with line chart and prediction records
 - `/my` - User profile with accuracy comparison chart and settings
+- `/admin` - Hidden admin page (URL-only access) for data collection and AI training
 
 ### Bottom Tab Navigation
 Five main tabs at bottom of screen:
 - **홈 (Home)**: Main dashboard with Soccer Brain header, ticker banner, AI Top Picks, Dropping Odds
 - **일정 (Schedule)**: Full match schedule list with weather and form indicators
-- **실험실 (Lab)**: Backtesting simulator with auto-tuning engine and data collection
+- **실험실 (Lab)**: AI 가상 매치 시뮬레이터 - select two EPL teams and run virtual match simulation
 - **적중내역 (History)**: AI prediction accuracy line chart and prediction records list
 - **마이 (My)**: User vs AI accuracy comparison bar chart and settings
+
+### Admin Page (/admin - Hidden)
+Admin functionality is separated and accessible only via direct URL:
+- Data collection from API-Football (2023-24 Premier League season)
+- Batch data enrichment for training set quality improvement
+- AI training mode with weight adjustments and insights
+- Backup download for training_set.json
 
 ### Backend Architecture
 - **Framework**: Express.js 5 on Node.js
