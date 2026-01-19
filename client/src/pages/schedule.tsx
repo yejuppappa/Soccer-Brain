@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Calendar, TrendingDown, TrendingUp, Minus, CloudRain, Sun, Cloud, Snowflake, Flame, ChevronRight } from "lucide-react";
+import { Calendar, CloudRain, Sun, Cloud, Snowflake, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -158,66 +158,63 @@ function WeatherIcon({ condition }: { condition: WeatherCondition }) {
   }
 }
 
-function TrendIcon({ trend }: { trend: 'up' | 'down' | 'stable' }) {
-  switch (trend) {
-    case 'down':
-      return <TrendingDown className="h-3 w-3 text-red-500" />;
-    case 'up':
-      return <TrendingUp className="h-3 w-3 text-green-500" />;
-    case 'stable':
-      return <Minus className="h-3 w-3 text-muted-foreground" />;
-  }
+// Trend arrow with colored text (red=up/rising odds, blue=down/falling odds)
+function TrendArrow({ trend }: { trend: 'up' | 'down' | 'stable' }) {
+  if (trend === 'up') return <span className="text-red-500 font-medium ml-0.5">▲</span>;
+  if (trend === 'down') return <span className="text-blue-500 font-medium ml-0.5">▼</span>;
+  return null;
 }
 
-interface AIProbButtonProps {
+interface OddsButtonProps {
   label: string;
+  domesticOdds: number;
+  overseasOdds: number;
   aiProb: number;
-  odds: number;
   trend: 'up' | 'down' | 'stable';
   isSelected: boolean;
-  isHighest: boolean;
   onClick: (e: React.MouseEvent) => void;
   testId: string;
 }
 
-function AIProbButton({ label, aiProb, odds, trend, isSelected, isHighest, onClick, testId }: AIProbButtonProps) {
-  const highlightClasses = isHighest && !isSelected 
-    ? "bg-blue-500/10 border-blue-500/50 dark:bg-blue-500/20 dark:border-blue-400/50" 
-    : "";
-  
+function OddsButton({ label, domesticOdds, overseasOdds, aiProb, trend, isSelected, onClick, testId }: OddsButtonProps) {
   return (
-    <div className="h-20">
+    <div className="h-[88px]">
       <Button
         variant={isSelected ? "default" : "outline"}
         onClick={onClick}
-        className={`w-full h-full flex flex-col items-center justify-center gap-1 relative transition-all ${highlightClasses}`}
         data-testid={testId}
+        className="w-full h-full flex flex-col items-center justify-center gap-0 px-1"
       >
-      {trend === 'down' && (
-        <Badge 
-          variant="destructive" 
-          className="absolute -top-2 -right-1 text-[8px] px-1 py-0 h-4"
-        >
-          <Flame className="h-2.5 w-2.5 mr-0.5" />
-          HOT
-        </Badge>
-      )}
-      {isHighest && !isSelected && (
-        <Badge 
-          variant="secondary" 
-          className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] px-1.5 py-0 h-4 bg-blue-500 text-white border-0"
-        >
-          AI Pick
-        </Badge>
-      )}
-      <span className="text-[10px] text-muted-foreground">{label}</span>
-      <span className={`font-bold text-xl ${isHighest ? 'text-blue-600 dark:text-blue-400' : ''}`}>
-        {aiProb}%
-      </span>
-      <div className="flex items-center gap-1">
-        <span className="text-xs text-muted-foreground">{odds.toFixed(2)}배</span>
-        <TrendIcon trend={trend} />
-      </div>
+        {/* Label */}
+        <span className={`text-[10px] mb-0.5 ${isSelected ? 'opacity-80' : 'text-muted-foreground'}`}>
+          {label}
+        </span>
+        
+        {/* Main: Domestic Odds + Trend Arrow */}
+        <div className="flex items-center justify-center">
+          <span className="font-bold text-xl">
+            {domesticOdds.toFixed(2)}
+          </span>
+          {!isSelected && <TrendArrow trend={trend} />}
+        </div>
+        
+        {/* Sub: EU Odds */}
+        <span className={`text-[10px] mt-0.5 ${isSelected ? 'opacity-70' : 'text-muted-foreground/70'}`}>
+          (EU {overseasOdds.toFixed(2)})
+        </span>
+        
+        {/* AI Probability Bar */}
+        <div className="w-full px-1 mt-1.5">
+          <div className={`h-1 rounded-full overflow-hidden ${isSelected ? 'bg-primary-foreground/30' : 'bg-muted'}`}>
+            <div 
+              className={`h-full rounded-full transition-all ${isSelected ? 'bg-primary-foreground/80' : 'bg-blue-500 dark:bg-blue-400'}`}
+              style={{ width: `${aiProb}%` }}
+            />
+          </div>
+          <span className={`text-[9px] block text-center mt-0.5 ${isSelected ? 'opacity-70' : 'text-muted-foreground/60'}`}>
+            AI {aiProb}%
+          </span>
+        </div>
       </Button>
     </div>
   );
@@ -335,13 +332,6 @@ export default function Schedule() {
           <div className="space-y-3">
             {matches.map((match) => {
               const currentPick = getPickForMatch(match.id);
-              // Find highest AI probability
-              const probs = [
-                { key: 'home', value: match.aiProb.home },
-                { key: 'draw', value: match.aiProb.draw },
-                { key: 'away', value: match.aiProb.away },
-              ];
-              const highestKey = probs.reduce((a, b) => a.value > b.value ? a : b).key;
               
               return (
                 <Card
@@ -395,54 +385,39 @@ export default function Schedule() {
                     </div>
                   </div>
                   
-                  {/* AI Probability Buttons - Fixed Grid Layout */}
-                  <div className="px-3 py-3 border-t bg-muted/30">
+                  {/* Odds Buttons - Professional Grid Layout */}
+                  <div className="px-3 py-3 border-t bg-muted/20">
                     <div className="grid grid-cols-3 gap-2">
-                      <AIProbButton
+                      <OddsButton
                         label="홈승"
+                        domesticOdds={match.odds.domestic[0]}
+                        overseasOdds={match.odds.overseas[0]}
                         aiProb={match.aiProb.home}
-                        odds={match.odds.domestic[0]}
                         trend={match.odds.domesticTrend[0]}
                         isSelected={currentPick?.selection === 'home'}
-                        isHighest={highestKey === 'home'}
                         onClick={(e) => handleOddsClick(match, 'home', match.odds.domestic[0], e)}
                         testId={`button-odds-home-${match.id}`}
                       />
-                      <AIProbButton
+                      <OddsButton
                         label="무승부"
+                        domesticOdds={match.odds.domestic[1]}
+                        overseasOdds={match.odds.overseas[1]}
                         aiProb={match.aiProb.draw}
-                        odds={match.odds.domestic[1]}
                         trend={match.odds.domesticTrend[1]}
                         isSelected={currentPick?.selection === 'draw'}
-                        isHighest={highestKey === 'draw'}
                         onClick={(e) => handleOddsClick(match, 'draw', match.odds.domestic[1], e)}
                         testId={`button-odds-draw-${match.id}`}
                       />
-                      <AIProbButton
+                      <OddsButton
                         label="원정승"
+                        domesticOdds={match.odds.domestic[2]}
+                        overseasOdds={match.odds.overseas[2]}
                         aiProb={match.aiProb.away}
-                        odds={match.odds.domestic[2]}
                         trend={match.odds.domesticTrend[2]}
                         isSelected={currentPick?.selection === 'away'}
-                        isHighest={highestKey === 'away'}
                         onClick={(e) => handleOddsClick(match, 'away', match.odds.domestic[2], e)}
                         testId={`button-odds-away-${match.id}`}
                       />
-                    </div>
-                  </div>
-                  
-                  {/* Domestic vs Overseas Odds Footer */}
-                  <div className="px-3 py-2 bg-muted/50 border-t">
-                    <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <span className="font-medium">KR</span>
-                        <span>{match.odds.domestic[0].toFixed(2)}</span>
-                      </span>
-                      <span className="text-muted-foreground/50">vs</span>
-                      <span className="flex items-center gap-1">
-                        <span className="font-medium">EU</span>
-                        <span>{match.odds.overseas[0].toFixed(2)}</span>
-                      </span>
                     </div>
                   </div>
                 </Card>
