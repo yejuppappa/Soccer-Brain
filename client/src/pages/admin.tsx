@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Beaker, Play, CheckCircle2, XCircle, TrendingUp, AlertTriangle, Loader2, GraduationCap, RefreshCw, Database, Download, FileJson, Save, Zap, ShieldAlert } from "lucide-react";
-import type { VariableType, TrainingResult } from "@shared/schema";
+import { Beaker, Play, CheckCircle2, XCircle, TrendingUp, AlertTriangle, Loader2, GraduationCap, RefreshCw, Database, Download, FileJson, Save, Zap, ShieldAlert, Clock, Bot, Pause } from "lucide-react";
+import type { VariableType, TrainingResult, MiningState, MiningStatus } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -56,6 +56,25 @@ interface EnrichResult {
   logs: string[];
 }
 
+const miningStatusLabels: Record<MiningStatus, { label: string; color: string }> = {
+  success: { label: "성공", color: "text-green-500" },
+  stopped: { label: "중단됨", color: "text-amber-500" },
+  error: { label: "오류", color: "text-red-500" },
+  safe_mode: { label: "안전 모드", color: "text-amber-500" },
+};
+
+function formatMiningTime(isoString: string | null): string {
+  if (!isoString) return "없음";
+  const date = new Date(isoString);
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function Admin() {
   const [trainingResult, setTrainingResult] = useState<TrainingResult | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -75,6 +94,23 @@ export default function Admin() {
     queryKey: ["/api/training-set/stats"],
     staleTime: 0,
     retry: false,
+  });
+
+  const { data: miningState, refetch: refetchMiningState } = useQuery<MiningState>({
+    queryKey: ["/api/mining-state"],
+    staleTime: 10000,
+    refetchInterval: 30000,
+  });
+
+  const triggerMiningMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/trigger-mining");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/mining-state"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/training-set/stats"] });
+    },
   });
 
   const trainMutation = useMutation({
@@ -251,6 +287,115 @@ export default function Admin() {
 
         {activeTab === 'collection' && (
           <>
+            <Card className="border-purple-500/30 bg-purple-500/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-purple-500" />
+                  자동 채굴 스케줄러 (Smart Cron)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  매일 자정(00:00 UTC) 및 서버 시작 시 자동 수집
+                </p>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-muted rounded-md p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">마지막 실행</span>
+                    </div>
+                    <div className="text-sm font-medium" data-testid="text-last-mining-time">
+                      {formatMiningTime(miningState?.lastRunTime || null)}
+                    </div>
+                  </div>
+                  <div className="bg-muted rounded-md p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      {miningState?.lastStatus === 'success' ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      ) : miningState?.lastStatus === 'safe_mode' ? (
+                        <Pause className="h-4 w-4 text-amber-500" />
+                      ) : miningState?.lastStatus === 'error' ? (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <span className="text-xs text-muted-foreground">상태</span>
+                    </div>
+                    <div 
+                      className={`text-sm font-medium ${miningState?.lastStatus ? miningStatusLabels[miningState.lastStatus]?.color : ''}`}
+                      data-testid="text-last-mining-status"
+                    >
+                      {miningState?.lastStatus ? miningStatusLabels[miningState.lastStatus]?.label : "대기 중"}
+                    </div>
+                  </div>
+                </div>
+
+                {miningState?.lastMessage && (
+                  <div className="bg-muted/50 rounded-md p-2 text-xs text-muted-foreground" data-testid="text-last-mining-message">
+                    {miningState.lastMessage}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>오늘 수집: {miningState?.totalCollectedToday || 0}개</span>
+                  <span>{miningState?.isRunning ? "실행 중..." : "대기 중"}</span>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => triggerMiningMutation.mutate()}
+                    disabled={triggerMiningMutation.isPending || miningState?.isRunning}
+                    className="flex-1"
+                    data-testid="button-trigger-mining"
+                  >
+                    {triggerMiningMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        실행 중...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-4 w-4 mr-2" />
+                        수동 실행
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => refetchMiningState()}
+                    data-testid="button-refresh-mining"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {miningState?.logs && miningState.logs.length > 0 && (
+                  <div className="border-t pt-3">
+                    <div className="text-xs text-muted-foreground mb-2">최근 로그 (최대 5개)</div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {miningState.logs.slice(-5).reverse().map((log, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`text-xs p-1.5 rounded ${
+                            log.status === 'success' ? 'bg-green-500/10 text-green-600' :
+                            log.status === 'safe_mode' ? 'bg-amber-500/10 text-amber-600' :
+                            log.status === 'error' ? 'bg-red-500/10 text-red-600' :
+                            'bg-muted'
+                          }`}
+                        >
+                          <span className="opacity-70">{new Date(log.timestamp).toLocaleTimeString("ko-KR")}</span>
+                          {" - "}{log.message}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <Card className="border-blue-500/30 bg-blue-500/5">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">

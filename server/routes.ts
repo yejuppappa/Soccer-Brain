@@ -15,6 +15,7 @@ import {
   type CollectionResult,
   type EnrichedData,
 } from "./training-data-manager";
+import { getMiningState, triggerManualMining } from "./mining-scheduler";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -479,6 +480,26 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("[Routes] Data collection error:", error.message);
       res.status(500).json({ error: error.message || "Failed to collect data" });
+    }
+  });
+
+  // Mining scheduler state endpoint
+  app.get("/api/mining-state", async (req, res) => {
+    try {
+      const state = getMiningState();
+      res.json(state);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to get mining state" });
+    }
+  });
+
+  // Manual trigger for mining (admin only)
+  app.post("/api/trigger-mining", async (req, res) => {
+    try {
+      const state = await triggerManualMining();
+      res.json(state);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to trigger mining" });
     }
   });
 

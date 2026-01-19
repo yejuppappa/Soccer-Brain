@@ -254,3 +254,57 @@ export interface UserStats {
   aiCorrect: number;
   aiAccuracy: number;
 }
+
+// ============================================
+// Standardized Training Data Format
+// ============================================
+// This is our vendor-agnostic data format.
+// When switching data providers (API), only update the transformer - not the training set.
+
+export type StandardizedResult = 'W' | 'D' | 'L'; // Home team perspective
+
+export interface StandardizedTeamStats {
+  attack: number;     // 0-100, offensive capability
+  defense: number;    // 0-100, defensive capability  
+  organization: number; // 0-100, team coordination/structure
+  form: number;       // 0-100, recent performance
+  ranking: number;    // League position (1-20)
+}
+
+export interface StandardizedMatch {
+  id: string;                    // Unique identifier (e.g., "std-{fixtureId}")
+  match_date: string;            // ISO date string
+  home_team: string;             // Team name
+  away_team: string;             // Team name
+  home_score: number;            // Final score
+  away_score: number;            // Final score
+  home_stats: StandardizedTeamStats;
+  away_stats: StandardizedTeamStats;
+  result: StandardizedResult;    // From home team perspective: W=home win, D=draw, L=home loss
+  venue?: string;                // Stadium name
+  source: string;                // Data source identifier (e.g., "api-football-v3")
+  source_id: string;             // Original ID from source (e.g., fixture ID)
+  collected_at: string;          // When this data was collected
+  quality: 'basic' | 'enriched'; // Data quality level
+}
+
+// Auto Mining Scheduler Types
+export type MiningStatus = 'success' | 'stopped' | 'error' | 'safe_mode';
+
+export interface MiningLogEntry {
+  timestamp: string;
+  status: MiningStatus;
+  message: string;
+  matchesCollected: number;
+  duplicatesSkipped: number;
+  quotaRemaining: number;
+}
+
+export interface MiningState {
+  lastRunTime: string | null;
+  lastStatus: MiningStatus | null;
+  lastMessage: string | null;
+  totalCollectedToday: number;
+  isRunning: boolean;
+  logs: MiningLogEntry[];
+}

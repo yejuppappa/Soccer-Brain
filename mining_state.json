@@ -1,0 +1,25 @@
+{
+  "lastRunTime": "2026-01-19T12:43:59.462Z",
+  "lastStatus": "safe_mode",
+  "lastMessage": "안전 모드 발동: API 한도 0회 미만",
+  "totalCollectedToday": 0,
+  "isRunning": false,
+  "logs": [
+    {
+      "timestamp": "2026-01-19T12:42:46.343Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    },
+    {
+      "timestamp": "2026-01-19T12:43:59.462Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    }
+  ]
+}
