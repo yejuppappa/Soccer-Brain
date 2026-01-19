@@ -89,8 +89,10 @@ Five main tabs at bottom of screen:
 
 ### Match Detail H2H Section
 - **양 팀 맞대결 (H2H)**: Head-to-head statistics between teams
-- **Summary Stats**: Win count for each team plus draws
-- **Recent Matches**: Last 5 H2H matches with date, score, and result indicator icons
+- **Horizontal Bar Chart**: Stacked bar showing home wins (green), draws (gray), away wins (red) with percentages
+- **H2H Timeline**: Vertical timeline with colored result dots (H/D/A) and match details
+- **Recent 5 Games Section**: Two-column layout with timeline UI for each team's recent form
+- **Timeline Features**: Vertical line connector, colored dots (W=green, D=gray, L=red), date, opponent, score, result
 
 ### Admin Page (/admin - Hidden)
 Admin functionality is separated and accessible only via direct URL:
