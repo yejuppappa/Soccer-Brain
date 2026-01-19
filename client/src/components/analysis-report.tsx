@@ -187,7 +187,7 @@ export function AnalysisReport({ homeTeam, awayTeam, weather, probability }: Ana
   
   return (
     <Card 
-      className="p-5 bg-zinc-900 dark:bg-zinc-950 text-zinc-100 border-zinc-800"
+      className="p-5 pb-8 bg-zinc-900 dark:bg-zinc-950 text-zinc-100 border-zinc-800"
       data-testid="panel-analysis-report"
     >
       <div className="flex items-center gap-2 mb-4">
@@ -195,13 +195,13 @@ export function AnalysisReport({ homeTeam, awayTeam, weather, probability }: Ana
         <h3 className="font-bold text-base text-zinc-100">AI 종합 분석 리포트</h3>
       </div>
       
-      <div className="space-y-4 text-sm leading-relaxed">
+      <div className="space-y-4 text-sm leading-relaxed" style={{ height: 'auto' }}>
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-red-500" />
             <span className="text-xs font-medium text-zinc-400">{homeTeam.name} 분석</span>
           </div>
-          <p className="text-zinc-300 pl-4" data-testid="text-home-analysis">
+          <p className="text-zinc-300 pl-4 whitespace-pre-wrap break-words" data-testid="text-home-analysis">
             {homeAnalysis.join(' ')}
           </p>
         </div>
@@ -211,7 +211,7 @@ export function AnalysisReport({ homeTeam, awayTeam, weather, probability }: Ana
             <span className="w-2 h-2 rounded-full bg-blue-500" />
             <span className="text-xs font-medium text-zinc-400">{awayTeam.name} 분석</span>
           </div>
-          <p className="text-zinc-300 pl-4" data-testid="text-away-analysis">
+          <p className="text-zinc-300 pl-4 whitespace-pre-wrap break-words" data-testid="text-away-analysis">
             {awayAnalysis.join(' ')}
           </p>
         </div>
@@ -233,7 +233,7 @@ export function AnalysisReport({ homeTeam, awayTeam, weather, probability }: Ana
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
             <span className="text-xs font-medium text-emerald-400">종합 결론</span>
           </div>
-          <p className="text-zinc-200 pl-4 font-medium" data-testid="text-conclusion">
+          <p className="text-zinc-200 pl-4 font-medium whitespace-pre-wrap break-words" data-testid="text-conclusion">
             {conclusion}
           </p>
         </div>

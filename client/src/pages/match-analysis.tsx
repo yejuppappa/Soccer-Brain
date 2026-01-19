@@ -9,6 +9,8 @@ import { ProbabilityGaugeBar } from "@/components/probability-gauge-bar";
 import { InsightCards, detectFactors } from "@/components/insight-cards";
 import { OddsMovement } from "@/components/odds-movement";
 import { AnalysisReport } from "@/components/analysis-report";
+import { TeamRadarChart } from "@/components/team-radar-chart";
+import { PredictedScore } from "@/components/predicted-score";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { MatchAnalysisResponse, WinDrawLossProbability, WeatherCondition } from "@shared/schema";
 
@@ -201,9 +203,25 @@ export default function MatchAnalysis() {
               </div>
             </Card>
 
+            {/* Team Power Radar Chart */}
+            <TeamRadarChart
+              homeTeam={analysis!.homeTeam}
+              awayTeam={analysis!.awayTeam}
+            />
+
             {/* Probability Analysis */}
             <Card className="p-6">
-              <h3 className="font-bold text-center mb-6 text-lg">AI 승률 분석</h3>
+              <h3 className="font-bold text-center mb-4 text-lg">AI 승률 분석</h3>
+              
+              {/* AI Predicted Score Badge */}
+              <div className="mb-4">
+                <PredictedScore
+                  homeTeam={analysis!.homeTeam}
+                  awayTeam={analysis!.awayTeam}
+                  probability={calculatedProbability}
+                />
+              </div>
+              
               <ProbabilityGaugeBar
                 probability={calculatedProbability}
                 homeTeamName={analysis!.homeTeam.shortName}
