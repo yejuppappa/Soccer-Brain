@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useSport } from "@/contexts/sport-context";
+import { SportPlaceholder } from "@/components/sport-placeholder";
 import type { MatchListResponse, Match, WeatherCondition } from "@shared/schema";
 
 const MOCK_TEAMS = [
@@ -36,6 +38,7 @@ function generateMockTopPicks(): { match: Match; probability: number; winner: 'h
     mockMatches.push({
       match: {
         id: `demo-top-${i + 1}`,
+        sportType: 'soccer',
         homeTeam: {
           id: home.id,
           name: home.name,
@@ -90,6 +93,7 @@ function generateMockDroppingOdds(): Match[] {
     
     return {
       id: `demo-drop-${i + 1}`,
+      sportType: 'soccer' as const,
       homeTeam: {
         id: home.id,
         name: home.name,
@@ -165,9 +169,11 @@ function generatePredictedScore(match: Match, probability: number): string {
 
 export default function Home() {
   const [, navigate] = useLocation();
+  const { currentSport } = useSport();
 
   const { data, isLoading } = useQuery<MatchListResponse>({
     queryKey: ["/api/matches"],
+    enabled: currentSport === 'soccer',
   });
 
   const { topPicks, isTopPicksDemo } = useMemo(() => {
@@ -203,6 +209,25 @@ export default function Home() {
     }
     return { droppingOdds: generateMockDroppingOdds(), isDroppingDemo: true };
   }, [data?.matches]);
+
+  if (currentSport !== 'soccer') {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <header className="sticky top-0 z-40 bg-background border-b">
+          <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Brain className="h-6 w-6 text-primary" />
+              <span className="font-bold text-lg">Sports Brain</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+            </div>
+          </div>
+        </header>
+        <SportPlaceholder />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">

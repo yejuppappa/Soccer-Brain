@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Beaker, Zap, Trophy, Swords, Target, Shield, TrendingUp, Activity, Goal, Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useSport } from "@/contexts/sport-context";
+import { SportPlaceholder } from "@/components/sport-placeholder";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Radar,
@@ -81,6 +83,7 @@ interface SimulationResult {
 }
 
 export default function Laboratory() {
+  const { currentSport } = useSport();
   const [homeTeamId, setHomeTeamId] = useState<string>("");
   const [awayTeamId, setAwayTeamId] = useState<string>("");
   const [isSimulating, setIsSimulating] = useState(false);
@@ -102,6 +105,23 @@ export default function Laboratory() {
       { stat: "GOAL", home: homeStats.goalScoring, away: awayStats.goalScoring, fullMark: 100 },
     ];
   }, [homeStats, awayStats]);
+
+  if (currentSport !== 'soccer') {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <header className="sticky top-0 z-40 bg-background border-b">
+          <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Beaker className="h-5 w-5 text-primary" />
+              <h1 className="font-bold text-lg">AI 가상 매치</h1>
+            </div>
+            <ThemeToggle />
+          </div>
+        </header>
+        <SportPlaceholder />
+      </div>
+    );
+  }
 
   const handleSimulate = async () => {
     if (!homeTeam || !awayTeam || !homeStats || !awayStats) return;

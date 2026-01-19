@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useSport } from "@/contexts/sport-context";
+import { SportPlaceholder } from "@/components/sport-placeholder";
 import type { MatchListResponse, Match, WeatherCondition } from "@shared/schema";
 
 const MOCK_TEAMS = [
@@ -68,6 +70,7 @@ function generateMockMatches(): Match[] {
     
     matches.push({
       id: `demo-match-${i + 1}`,
+      sportType: 'soccer',
       homeTeam: {
         id: home.id,
         name: home.name,
@@ -130,9 +133,11 @@ function WeatherIcon({ condition }: { condition: WeatherCondition }) {
 
 export default function Schedule() {
   const [, navigate] = useLocation();
+  const { currentSport } = useSport();
 
   const { data, isLoading, error } = useQuery<MatchListResponse>({
     queryKey: ["/api/matches"],
+    enabled: currentSport === 'soccer',
   });
 
   const { matches, isDemo } = useMemo(() => {
@@ -152,6 +157,23 @@ export default function Schedule() {
       weekday: "long",
     });
   }, [data?.date]);
+
+  if (currentSport !== 'soccer') {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <header className="sticky top-0 z-40 bg-background border-b">
+          <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              <h1 className="font-bold text-lg">경기 일정</h1>
+            </div>
+            <ThemeToggle />
+          </div>
+        </header>
+        <SportPlaceholder />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">

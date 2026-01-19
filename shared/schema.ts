@@ -26,6 +26,9 @@ export interface Weather {
   icon: string;
 }
 
+// Sport Types for Multi-Sport Support
+export type SportType = 'soccer' | 'basketball' | 'baseball' | 'volleyball';
+
 // Match and Team Types for Soccer Win Rate Simulator
 export interface Team {
   id: string;
@@ -53,6 +56,7 @@ export interface Odds {
 
 export interface Match {
   id: string;
+  sportType: SportType;
   homeTeam: Team;
   awayTeam: Team;
   matchTime: string;

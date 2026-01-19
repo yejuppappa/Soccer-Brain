@@ -4,6 +4,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BottomTabNavigation } from "@/components/bottom-tab-navigation";
+import { SportProvider } from "@/contexts/sport-context";
+import { SportSelector } from "@/components/sport-selector";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Schedule from "@/pages/schedule";
@@ -32,9 +34,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Router />
-        <BottomTabNavigation />
+        <SportProvider>
+          <div className="flex flex-col min-h-screen">
+            <SportSelector />
+            <div className="flex-1">
+              <Router />
+            </div>
+            <BottomTabNavigation />
+          </div>
+          <Toaster />
+        </SportProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

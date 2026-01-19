@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useSport } from "@/contexts/sport-context";
+import { SportPlaceholder } from "@/components/sport-placeholder";
 import { 
   LineChart, 
   Line, 
@@ -139,14 +141,17 @@ function formatDate(dateStr: string): string {
 }
 
 export default function History() {
+  const { currentSport } = useSport();
   const [activeTab, setActiveTab] = useState<'topPicks' | 'allRecords'>('topPicks');
 
   const { data: recordsData, isLoading: recordsLoading } = useQuery<{ records: PredictionRecord[] }>({
     queryKey: ["/api/prediction-records"],
+    enabled: currentSport === 'soccer',
   });
 
   const { data: dailyData, isLoading: dailyLoading } = useQuery<{ data: DailyAccuracy[] }>({
     queryKey: ["/api/daily-accuracy"],
+    enabled: currentSport === 'soccer',
   });
 
   const yesterdayTopPicks = useMemo(() => generateYesterdayTopPicks(), []);
@@ -188,6 +193,23 @@ export default function History() {
 
   const isLoading = recordsLoading || dailyLoading;
   const isDemo = isRecordsDemo || isDailyDemo;
+
+  if (currentSport !== 'soccer') {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <header className="sticky top-0 z-40 bg-background border-b">
+          <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-yellow-500" />
+              <h1 className="font-bold text-lg">적중 내역</h1>
+            </div>
+            <ThemeToggle />
+          </div>
+        </header>
+        <SportPlaceholder />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">

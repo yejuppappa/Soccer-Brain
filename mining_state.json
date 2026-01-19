@@ -1,90 +1,10 @@
 {
-  "lastRunTime": "2026-01-19T13:12:36.318Z",
+  "lastRunTime": "2026-01-19T13:22:36.223Z",
   "lastStatus": "safe_mode",
   "lastMessage": "안전 모드 발동: API 한도 0회 미만",
   "totalCollectedToday": 0,
   "isRunning": false,
   "logs": [
-    {
-      "timestamp": "2026-01-19T12:43:59.462Z",
-      "status": "safe_mode",
-      "message": "안전 모드 발동: API 한도 0회 미만",
-      "matchesCollected": 0,
-      "duplicatesSkipped": 0,
-      "quotaRemaining": 0
-    },
-    {
-      "timestamp": "2026-01-19T12:46:14.858Z",
-      "status": "safe_mode",
-      "message": "안전 모드 발동: API 한도 0회 미만",
-      "matchesCollected": 0,
-      "duplicatesSkipped": 0,
-      "quotaRemaining": 0
-    },
-    {
-      "timestamp": "2026-01-19T12:46:46.162Z",
-      "status": "safe_mode",
-      "message": "안전 모드 발동: API 한도 0회 미만",
-      "matchesCollected": 0,
-      "duplicatesSkipped": 0,
-      "quotaRemaining": 0
-    },
-    {
-      "timestamp": "2026-01-19T12:53:19.454Z",
-      "status": "safe_mode",
-      "message": "안전 모드 발동: API 한도 0회 미만",
-      "matchesCollected": 0,
-      "duplicatesSkipped": 0,
-      "quotaRemaining": 0
-    },
-    {
-      "timestamp": "2026-01-19T12:53:59.884Z",
-      "status": "safe_mode",
-      "message": "안전 모드 발동: API 한도 0회 미만",
-      "matchesCollected": 0,
-      "duplicatesSkipped": 0,
-      "quotaRemaining": 0
-    },
-    {
-      "timestamp": "2026-01-19T12:54:16.778Z",
-      "status": "safe_mode",
-      "message": "안전 모드 발동: API 한도 0회 미만",
-      "matchesCollected": 0,
-      "duplicatesSkipped": 0,
-      "quotaRemaining": 0
-    },
-    {
-      "timestamp": "2026-01-19T12:54:57.718Z",
-      "status": "safe_mode",
-      "message": "안전 모드 발동: API 한도 0회 미만",
-      "matchesCollected": 0,
-      "duplicatesSkipped": 0,
-      "quotaRemaining": 0
-    },
-    {
-      "timestamp": "2026-01-19T12:59:36.675Z",
-      "status": "safe_mode",
-      "message": "안전 모드 발동: API 한도 0회 미만",
-      "matchesCollected": 0,
-      "duplicatesSkipped": 0,
-      "quotaRemaining": 0
-    },
-    {
-      "timestamp": "2026-01-19T13:00:18.544Z",
-      "status": "safe_mode",
-      "message": "안전 모드 발동: API 한도 0회 미만",
-      "matchesCollected": 0,
-      "duplicatesSkipped": 0,
-      "quotaRemaining": 0
-    },
-    {
-      "timestamp": "2026-01-19T13:00:37.625Z",
-      "status": "safe_mode",
-      "message": "안전 모드 발동: API 한도 0회 미만",
-      "matchesCollected": 0,
-      "duplicatesSkipped": 0,
-      "quotaRemaining": 0
-    },
     {
       "timestamp": "2026-01-19T13:01:13.208Z",
       "status": "safe_mode",
@@ -159,6 +79,86 @@
     },
     {
       "timestamp": "2026-01-19T13:12:36.318Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    },
+    {
+      "timestamp": "2026-01-19T13:16:09.756Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    },
+    {
+      "timestamp": "2026-01-19T13:16:52.898Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    },
+    {
+      "timestamp": "2026-01-19T13:17:44.006Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    },
+    {
+      "timestamp": "2026-01-19T13:18:06.787Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    },
+    {
+      "timestamp": "2026-01-19T13:18:26.298Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    },
+    {
+      "timestamp": "2026-01-19T13:18:55.119Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    },
+    {
+      "timestamp": "2026-01-19T13:20:05.879Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    },
+    {
+      "timestamp": "2026-01-19T13:20:35.749Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    },
+    {
+      "timestamp": "2026-01-19T13:20:53.887Z",
+      "status": "safe_mode",
+      "message": "안전 모드 발동: API 한도 0회 미만",
+      "matchesCollected": 0,
+      "duplicatesSkipped": 0,
+      "quotaRemaining": 0
+    },
+    {
+      "timestamp": "2026-01-19T13:22:36.223Z",
       "status": "safe_mode",
       "message": "안전 모드 발동: API 한도 0회 미만",
       "matchesCollected": 0,
