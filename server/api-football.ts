@@ -445,6 +445,51 @@ export async function fetchFixtureLineups(fixtureId: number): Promise<FixtureLin
   }
 }
 
+// Batch fetch fixtures with full data (statistics, lineups, events) using ids parameter
+// API-Football allows fetching multiple fixtures at once with ids=123-456-789 format
+export interface BatchFixtureData {
+  fixtureId: number;
+  statistics: FixtureStatistics[];
+  lineups: FixtureLineup[];
+  events: Array<{
+    time: { elapsed: number };
+    team: { id: number; name: string };
+    player: { id: number; name: string };
+    type: string;
+    detail: string;
+  }>;
+}
+
+export async function fetchBatchFixtures(fixtureIds: number[]): Promise<BatchFixtureData[]> {
+  if (fixtureIds.length === 0) return [];
+  
+  // API-Football uses dash-separated IDs format: ids=123-456-789
+  const idsParam = fixtureIds.join("-");
+  console.log(`[API-Football] Batch fetching ${fixtureIds.length} fixtures: ${idsParam}`);
+  
+  try {
+    const response = await apiClient.get("/fixtures", {
+      params: {
+        ids: idsParam,
+      },
+    });
+    
+    console.log(`[API-Football] Batch response: ${response.data.results} fixtures`);
+    
+    const fixtures = response.data.response || [];
+    
+    return fixtures.map((fixture: any) => ({
+      fixtureId: fixture.fixture.id,
+      statistics: fixture.statistics || [],
+      lineups: fixture.lineups || [],
+      events: fixture.events || [],
+    }));
+  } catch (error: any) {
+    console.error(`[API-Football] Batch fetch failed:`, error.message);
+    throw error;
+  }
+}
+
 export async function fetchHistoricalMatchesWithResults(): Promise<HistoricalMatchWithResult[]> {
   console.log("[API-Football] Fetching historical matches with results...");
   

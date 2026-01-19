@@ -339,17 +339,17 @@ export default function Laboratory() {
                     {enrichMutation.isPending ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        상세 정보 수집 중...
+                        배치 처리 중...
                       </>
                     ) : (
                       <>
                         <Zap className="h-4 w-4 mr-2" />
-                        데이터 고도화 (20경기 테스트)
+                        배치 고도화 (100경기)
                       </>
                     )}
                   </Button>
                   <p className="text-xs text-muted-foreground mt-1 text-center">
-                    스탯/라인업 추가 수집 | API 호출: 40회 예상
+                    10경기/1호출 | 최대 10배치 = 100경기
                   </p>
                 </div>
               </CardContent>
@@ -384,10 +384,20 @@ export default function Laboratory() {
                           <div className="text-xs text-muted-foreground">총 데이터</div>
                         </div>
                       </div>
-                      <div className="bg-muted rounded-md p-3 max-h-40 overflow-y-auto">
+                      <div className="bg-muted rounded-md p-3 max-h-48 overflow-y-auto">
                         <div className="text-xs font-mono space-y-1">
                           {enrichResult.logs.map((log, i) => (
-                            <div key={i} className={log.includes('✅') ? 'text-green-600' : log.includes('❌') ? 'text-red-500' : ''}>
+                            <div 
+                              key={i} 
+                              className={
+                                log.includes('✅') ? 'text-green-600' : 
+                                log.includes('❌') ? 'text-red-500' : 
+                                log.includes('⚠️') ? 'text-amber-500' :
+                                log.includes('배치 처리 중') ? 'text-blue-500 font-semibold' :
+                                log.includes('고도화 완료') ? 'text-green-600 font-semibold' :
+                                ''
+                              }
+                            >
                               {log}
                             </div>
                           ))}

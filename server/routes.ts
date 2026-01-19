@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { fetchHistoricalMatchesWithResults, fetchCompletedFixtures, fetchStandingsForSeason, isApiConfigured, fetchFixtureStatistics, fetchFixtureLineups } from "./api-football";
+import { fetchHistoricalMatchesWithResults, fetchCompletedFixtures, fetchStandingsForSeason, isApiConfigured, fetchFixtureStatistics, fetchFixtureLineups, fetchBatchFixtures, type BatchFixtureData } from "./api-football";
 import { 
   loadTrainingData, 
   saveTrainingData, 
@@ -179,9 +179,11 @@ export async function registerRoutes(
     }
   });
 
-  // Enrich existing data with statistics and lineups (20 matches max, 1s delay)
+  // Batch enrich data with statistics and lineups (10 matches per API call)
+  // Optimized: 1 API call = 10 matches, 100 calls/day = 1000+ matches
   app.post("/api/enrich-data", async (req, res) => {
-    const ENRICH_LIMIT = 20;
+    const BATCH_SIZE = 10; // 10 matches per API call
+    const MAX_BATCHES = 10; // Max 10 batches = 100 matches per run
     
     try {
       if (!isApiConfigured()) {
@@ -189,13 +191,13 @@ export async function registerRoutes(
       }
       
       const logs: string[] = [];
-      logs.push("데이터 고도화 시작...");
+      logs.push("배치 고도화 시작...");
       
       // Load training data
       const trainingData = await loadTrainingData();
-      const matchesToEnrich = getMatchesWithoutStats(trainingData, ENRICH_LIMIT);
+      const allMatchesToEnrich = getMatchesWithoutStats(trainingData, BATCH_SIZE * MAX_BATCHES);
       
-      if (matchesToEnrich.length === 0) {
+      if (allMatchesToEnrich.length === 0) {
         logs.push("이미 모든 데이터가 고품질입니다!");
         return res.json({
           enriched: 0,
@@ -205,57 +207,83 @@ export async function registerRoutes(
         });
       }
       
-      logs.push(`고도화 대상: ${matchesToEnrich.length}개 경기`);
+      // Split into chunks of 10
+      const chunks: typeof allMatchesToEnrich[] = [];
+      for (let i = 0; i < allMatchesToEnrich.length; i += BATCH_SIZE) {
+        chunks.push(allMatchesToEnrich.slice(i, i + BATCH_SIZE));
+      }
+      
+      logs.push(`고도화 대상: ${allMatchesToEnrich.length}개 경기 (${chunks.length}개 배치)`);
+      logs.push(`배치 크기: ${BATCH_SIZE}개씩, API 호출: ${chunks.length}회 예정`);
       
       let enriched = 0;
       let errors = 0;
       
-      for (let i = 0; i < matchesToEnrich.length; i++) {
-        const match = matchesToEnrich[i];
-        logs.push(`[${i + 1}/${matchesToEnrich.length}] ${match.homeTeam} vs ${match.awayTeam} 처리 중...`);
+      for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
+        const chunk = chunks[batchIndex];
+        const fixtureIds = chunk.map(m => m.fixtureId);
+        const processed = (batchIndex + 1) * BATCH_SIZE;
+        const total = allMatchesToEnrich.length;
+        
+        logs.push(`\n배치 처리 중... (${Math.min(processed, total)}/${total})`);
+        logs.push(`  IDs: ${fixtureIds.join(", ")}`);
         
         try {
-          // Fetch statistics
-          const statistics = await fetchFixtureStatistics(match.fixtureId);
+          // Single API call for batch of fixtures
+          const batchData = await fetchBatchFixtures(fixtureIds);
           
-          // 1 second delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Fetch lineups
-          const lineups = await fetchFixtureLineups(match.fixtureId);
-          
-          // 1 second delay before next match
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Merge data
-          const enrichedData: EnrichedData = {
-            statistics,
-            lineups,
-            enrichedAt: new Date().toISOString(),
-          };
-          
-          const success = await enrichMatchWithData(trainingData, match.fixtureId, enrichedData);
-          
-          if (success) {
-            enriched++;
-            const statsCount = statistics.length > 0 ? statistics[0].statistics?.length || 0 : 0;
-            logs.push(`  ✅ 통계: ${statsCount}개 항목, 라인업: ${lineups.length > 0 ? '있음' : '없음'}`);
-          } else {
-            errors++;
-            logs.push(`  ❌ 매치 데이터를 찾을 수 없음`);
+          // 1 second delay between batches to avoid rate limiting
+          if (batchIndex < chunks.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
+          
+          // Merge each fixture's data
+          for (const data of batchData) {
+            const match = chunk.find(m => m.fixtureId === data.fixtureId);
+            if (!match) continue;
+            
+            const enrichedData: EnrichedData = {
+              statistics: data.statistics,
+              lineups: data.lineups,
+              enrichedAt: new Date().toISOString(),
+            };
+            
+            const success = await enrichMatchWithData(trainingData, data.fixtureId, enrichedData);
+            
+            if (success) {
+              enriched++;
+              const hasStats = data.statistics.length > 0;
+              const hasLineups = data.lineups.length > 0;
+              logs.push(`  ✅ ${match.homeTeam} vs ${match.awayTeam}: 통계=${hasStats ? '있음' : '없음'}, 라인업=${hasLineups ? '있음' : '없음'}`);
+            } else {
+              errors++;
+            }
+          }
+          
+          // Check for fixtures that weren't in the response
+          const returnedIds = new Set(batchData.map(d => d.fixtureId));
+          for (const match of chunk) {
+            if (!returnedIds.has(match.fixtureId)) {
+              errors++;
+              logs.push(`  ⚠️ ${match.homeTeam} vs ${match.awayTeam}: 데이터 없음 (ID: ${match.fixtureId})`);
+            }
+          }
+          
         } catch (error: any) {
-          errors++;
-          logs.push(`  ❌ API 오류: ${error.message}`);
+          errors += chunk.length;
+          logs.push(`  ❌ 배치 API 오류: ${error.message}`);
         }
       }
       
       // Save updated training data
       await saveTrainingData(trainingData);
       
-      logs.push(`\n고도화 완료! ${enriched}개 경기 업그레이드됨`);
+      logs.push(`\n=============================`);
+      logs.push(`고도화 완료!`);
+      logs.push(`  업그레이드: ${enriched}개 경기`);
+      logs.push(`  API 호출: ${chunks.length}회 (예상 비용 절감: ${(allMatchesToEnrich.length * 2) - chunks.length}회)`);
       if (errors > 0) {
-        logs.push(`오류: ${errors}건`);
+        logs.push(`  오류: ${errors}건`);
       }
       
       res.json({
