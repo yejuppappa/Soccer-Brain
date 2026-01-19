@@ -19,6 +19,10 @@ A mobile-first web application that analyzes soccer match win probabilities usin
 - Dark mode support
 - Team power comparison radar chart (5 stats: ATT, DEF, ORG, FORM, GOAL)
 - AI predicted score badge with seeded randomization based on match data
+- Dynamic lineup status display ("예상 라인업" vs "확정 라인업") with confirmation animation
+- User voting system for match predictions (승/무/패) stored via API
+- History page with daily accuracy line chart (Recharts) and prediction records
+- My page with user vs AI accuracy comparison bar chart
 
 ### Odds Movement Visualization
 - Displays domestic and overseas betting odds with trend arrows (up/down/stable)
@@ -51,18 +55,18 @@ Preferred communication style: Simple, everyday language.
 The frontend follows a page-based structure with reusable components:
 - `/` - Home dashboard with AI Top Picks and Dropping Odds
 - `/schedule` - Match schedule list showing today's games
-- `/match/:id` - Detailed match analysis with interactive probability controls
+- `/match/:id` - Detailed match analysis with lineup badge, voting, and probability controls
 - `/lab` - Laboratory page for backtesting AI predictions against historical data
-- `/history` - AI prediction history (placeholder)
-- `/my` - User profile and settings (placeholder)
+- `/history` - AI prediction accuracy tracking with line chart and prediction records
+- `/my` - User profile with accuracy comparison chart and settings
 
 ### Bottom Tab Navigation
 Five main tabs at bottom of screen:
 - **홈 (Home)**: Main dashboard with Soccer Brain header, ticker banner, AI Top Picks, Dropping Odds
 - **일정 (Schedule)**: Full match schedule list with weather and form indicators
 - **실험실 (Lab)**: Backtesting simulator with auto-tuning engine and data collection
-- **적중내역 (History)**: AI prediction results vs actual results comparison (placeholder)
-- **마이 (My)**: User profile and settings (placeholder)
+- **적중내역 (History)**: AI prediction accuracy line chart and prediction records list
+- **마이 (My)**: User vs AI accuracy comparison bar chart and settings
 
 ### Backend Architecture
 - **Framework**: Express.js 5 on Node.js
@@ -72,9 +76,15 @@ Five main tabs at bottom of screen:
 
 API Endpoints:
 - `GET /api/matches` - Returns list of matches with date info
-- `GET /api/matches/:id/analysis` - Returns detailed match analysis data
+- `GET /api/matches/:id/analysis` - Returns detailed match analysis data with lineup status
 - `GET /api/historical-matches` - Returns 20 historical matches for backtesting
 - `POST /api/backtest` - Runs backtest simulation with auto-tuning logic
+- `POST /api/votes` - Submit user vote (matchId, choice: home/draw/away)
+- `GET /api/votes/:matchId` - Get user vote for specific match
+- `GET /api/votes` - Get all user votes
+- `GET /api/prediction-records` - Returns AI prediction records with actual results
+- `GET /api/daily-accuracy` - Returns daily accuracy data for line chart
+- `GET /api/user-stats` - Returns user vs AI accuracy comparison stats
 
 ### Backtesting & Auto-Tuning System
 The Laboratory feature analyzes past match predictions to improve AI accuracy:
