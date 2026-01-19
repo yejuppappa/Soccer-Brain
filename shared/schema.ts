@@ -59,6 +59,7 @@ export interface Match {
   venue: string;
   weather: Weather;
   odds: Odds;
+  lineup?: LineupInfo;
 }
 
 // Win/Draw/Loss Probability Structure
@@ -82,6 +83,7 @@ export interface MatchAnalysis {
   awayTeam: Team;
   weather: Weather;
   odds: Odds;
+  lineup?: LineupInfo;
   cores: {
     core1: AnalysisCore;
     core2Home: AnalysisCore;
@@ -192,4 +194,52 @@ export interface TrainingResult {
   insights: string[];
   matchDetails: TrainingMatchDetail[];
   completedAt: string;
+}
+
+// Lineup Status Types
+export type LineupStatus = 'predicted' | 'confirmed';
+
+export interface LineupInfo {
+  status: LineupStatus;
+  confirmedAt?: string;
+}
+
+// User Vote Types
+export type VoteChoice = 'home' | 'draw' | 'away';
+
+export interface UserVote {
+  id: string;
+  matchId: string;
+  choice: VoteChoice;
+  votedAt: string;
+}
+
+// Prediction Record for tracking accuracy
+export interface PredictionRecord {
+  id: string;
+  matchId: string;
+  matchTitle: string;
+  date: string;
+  aiPrediction: VoteChoice;
+  userPrediction?: VoteChoice;
+  actualResult?: VoteChoice;
+  aiCorrect?: boolean;
+  userCorrect?: boolean;
+}
+
+// Daily Accuracy Stats for chart
+export interface DailyAccuracy {
+  date: string;
+  totalMatches: number;
+  aiCorrect: number;
+  userCorrect: number;
+}
+
+// User Stats for My page comparison
+export interface UserStats {
+  totalVotes: number;
+  userCorrect: number;
+  userAccuracy: number;
+  aiCorrect: number;
+  aiAccuracy: number;
 }
