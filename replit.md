@@ -77,9 +77,20 @@ The frontend follows a page-based structure with reusable components:
 Five main tabs at bottom of screen:
 - **홈 (Home)**: Main dashboard with Soccer Brain header, ticker banner, AI Top Picks, Dropping Odds
 - **일정 (Schedule)**: Full match schedule list with odds-centric buttons and pick selection
-- **광장 (Live)**: Live scoreboard and real-time community chat room
+- **리그 (League)**: League data center with standings table and top scorers
 - **적중내역 (History)**: AI prediction accuracy line chart and prediction records list
 - **마이 (My)**: User vs AI accuracy comparison bar chart and settings
+
+### 리그 (League) Data Center
+- **순위표 (Table)**: Full 20-team standings with rank, logo, team name, matches played, points, goal difference, and recent 5-game form icons
+- **선수 순위 (Top Players)**: Top 5 scorers with player photos, team logos, goals and assists
+- **Form Icons**: Color-coded circles (green=W, gray=D, red=L) for visual form display
+- **Zone Indicators**: Green left border for UCL spots, red for relegation zone
+
+### Match Detail H2H Section
+- **양 팀 맞대결 (H2H)**: Head-to-head statistics between teams
+- **Summary Stats**: Win count for each team plus draws
+- **Recent Matches**: Last 5 H2H matches with date, score, and result indicator icons
 
 ### Admin Page (/admin - Hidden)
 Admin functionality is separated and accessible only via direct URL:

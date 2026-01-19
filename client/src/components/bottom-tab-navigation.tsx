@@ -1,4 +1,4 @@
-import { Home, Calendar, MessageSquare, Trophy, User } from "lucide-react";
+import { Home, Calendar, BarChart3, Trophy, User } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface TabItem {
@@ -10,7 +10,7 @@ interface TabItem {
 const tabs: TabItem[] = [
   { path: "/", label: "홈", icon: Home },
   { path: "/schedule", label: "일정", icon: Calendar },
-  { path: "/live", label: "광장", icon: MessageSquare },
+  { path: "/league", label: "리그", icon: BarChart3 },
   { path: "/history", label: "적중내역", icon: Trophy },
   { path: "/my", label: "마이", icon: User },
 ];
@@ -33,7 +33,7 @@ export function BottomTabNavigation() {
       className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50"
       data-testid="bottom-tab-navigation"
     >
-      <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
+      <div className="flex items-center justify-around gap-2 h-16 max-w-lg mx-auto px-2">
         {tabs.map((tab) => {
           const active = isActive(tab.path);
           const Icon = tab.icon;

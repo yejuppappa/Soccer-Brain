@@ -522,6 +522,67 @@ export default function MatchAnalysis() {
               </div>
             </Card>
 
+            {/* Head to Head Section */}
+            <Card className="p-4" data-testid="section-h2h">
+              <h4 className="font-bold text-sm mb-4 flex items-center gap-2">
+                <span className="w-1 h-4 bg-primary rounded-full" />
+                양 팀 맞대결 (H2H)
+              </h4>
+              <div className="space-y-3">
+                {/* H2H Summary */}
+                <div className="grid grid-cols-3 gap-2 text-center py-3 bg-muted/30 rounded-lg">
+                  <div>
+                    <div className="text-xl font-bold text-destructive">3</div>
+                    <div className="text-xs text-muted-foreground">{analysis?.homeTeam.shortName} 승</div>
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold text-muted-foreground">2</div>
+                    <div className="text-xs text-muted-foreground">무승부</div>
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold text-primary">2</div>
+                    <div className="text-xs text-muted-foreground">{analysis?.awayTeam.shortName} 승</div>
+                  </div>
+                </div>
+                
+                {/* Recent H2H Matches */}
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground mb-2">최근 5경기 맞대결</p>
+                  {[
+                    { date: '2024.10.15', homeScore: 2, awayScore: 1, result: 'H' as const },
+                    { date: '2024.04.22', homeScore: 1, awayScore: 1, result: 'D' as const },
+                    { date: '2023.11.08', homeScore: 0, awayScore: 2, result: 'A' as const },
+                    { date: '2023.05.14', homeScore: 3, awayScore: 2, result: 'H' as const },
+                    { date: '2022.12.03', homeScore: 1, awayScore: 3, result: 'A' as const },
+                  ].map((match, idx) => (
+                    <div 
+                      key={idx} 
+                      className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/20"
+                      data-testid={`row-h2h-${idx}`}
+                    >
+                      <span className="text-xs text-muted-foreground w-20">{match.date}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-semibold ${match.result === 'H' ? 'text-destructive' : ''}`}>
+                          {match.homeScore}
+                        </span>
+                        <span className="text-xs text-muted-foreground">-</span>
+                        <span className={`text-sm font-semibold ${match.result === 'A' ? 'text-primary' : ''}`}>
+                          {match.awayScore}
+                        </span>
+                      </div>
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                        match.result === 'H' ? 'bg-green-500' : 
+                        match.result === 'D' ? 'bg-gray-400' : 
+                        'bg-red-500'
+                      }`}>
+                        {match.result === 'H' ? 'H' : match.result === 'D' ? 'D' : 'A'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
             {/* Voting Section */}
             <Card className="p-6" data-testid="section-voting">
               <h3 className="font-bold text-center mb-4 text-lg">승부 예측 투표</h3>

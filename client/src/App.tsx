@@ -13,7 +13,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Schedule from "@/pages/schedule";
 import MatchAnalysis from "@/pages/match-analysis";
-import Live from "@/pages/live";
+import League from "@/pages/league";
 import History from "@/pages/history";
 import My from "@/pages/my";
 import Admin from "@/pages/admin";
@@ -24,7 +24,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/schedule" component={Schedule} />
       <Route path="/match/:id" component={MatchAnalysis} />
-      <Route path="/live" component={Live} />
+      <Route path="/league" component={League} />
       <Route path="/history" component={History} />
       <Route path="/my" component={My} />
       <Route path="/admin" component={Admin} />
