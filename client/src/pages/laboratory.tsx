@@ -1,197 +1,168 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Beaker, Play, CheckCircle2, XCircle, TrendingUp, AlertTriangle, Loader2, GraduationCap, RefreshCw, Database, Download, FileJson, Save, Zap } from "lucide-react";
-import type { VariableType, TrainingResult, TrainingMatch } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Beaker, Zap, Trophy, Swords, Target, Shield, TrendingUp, Activity, Goal, Loader2 } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+import type { Match } from "@shared/schema";
 
-const resultLabels: Record<string, string> = {
-  home_win: "홈승",
-  draw: "무승부",
-  away_win: "원정승",
-};
+const PREMIER_LEAGUE_TEAMS = [
+  { id: "man_city", name: "맨체스터 시티", shortName: "맨시티", color: "#6CABDD" },
+  { id: "arsenal", name: "아스널", shortName: "아스널", color: "#EF0107" },
+  { id: "liverpool", name: "리버풀", shortName: "리버풀", color: "#C8102E" },
+  { id: "man_utd", name: "맨체스터 유나이티드", shortName: "맨유", color: "#DA291C" },
+  { id: "chelsea", name: "첼시", shortName: "첼시", color: "#034694" },
+  { id: "tottenham", name: "토트넘 홋스퍼", shortName: "토트넘", color: "#132257" },
+  { id: "newcastle", name: "뉴캐슬 유나이티드", shortName: "뉴캐슬", color: "#241F20" },
+  { id: "brighton", name: "브라이튼", shortName: "브라이튼", color: "#0057B8" },
+  { id: "aston_villa", name: "아스톤 빌라", shortName: "빌라", color: "#95BFE5" },
+  { id: "west_ham", name: "웨스트햄 유나이티드", shortName: "웨스트햄", color: "#7A263A" },
+  { id: "brentford", name: "브렌트포드", shortName: "브렌트포드", color: "#E30613" },
+  { id: "fulham", name: "풀럼", shortName: "풀럼", color: "#000000" },
+  { id: "crystal_palace", name: "크리스탈 팰리스", shortName: "팰리스", color: "#1B458F" },
+  { id: "wolves", name: "울버햄튼", shortName: "울브스", color: "#FDB913" },
+  { id: "everton", name: "에버튼", shortName: "에버튼", color: "#003399" },
+  { id: "nottingham", name: "노팅엄 포레스트", shortName: "노팅엄", color: "#DD0000" },
+  { id: "bournemouth", name: "본머스", shortName: "본머스", color: "#DA291C" },
+  { id: "leicester", name: "레스터 시티", shortName: "레스터", color: "#003090" },
+  { id: "ipswich", name: "입스위치 타운", shortName: "입스위치", color: "#3A64A3" },
+  { id: "southampton", name: "사우샘프턴", shortName: "사우샘프턴", color: "#D71920" },
+];
 
-const variableLabels: Record<VariableType, string> = {
-  fatigue: "피로도",
-  injury: "부상 변수",
-  weather: "날씨 변수",
-  form: "팀 폼",
-  home_advantage: "홈 어드밴티지",
-};
-
-interface TrainingDataResponse {
-  matches: Array<{
-    id: number;
-    homeTeam: { name: string; ranking: number; form: string };
-    awayTeam: { name: string; ranking: number; form: string };
-    homeScore: number;
-    awayScore: number;
-    actualResult: string;
-    date: string;
-    venue?: string;
-  }>;
-  count: number;
+function generateTeamStats(teamId: string) {
+  const hash = teamId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const seed = (n: number) => ((hash * n) % 100) / 100;
+  
+  return {
+    attack: 55 + Math.floor(seed(1) * 40),
+    defense: 55 + Math.floor(seed(2) * 40),
+    organization: 55 + Math.floor(seed(3) * 40),
+    form: 45 + Math.floor(seed(4) * 50),
+    goalScoring: 50 + Math.floor(seed(5) * 45),
+  };
 }
 
-interface TrainingSetStats {
-  totalMatches: number;
-  lastUpdated: string;
-  uniqueTeams: number;
-  highQualityCount: number;
-  basicDataCount: number;
+function generateCommentary(homeTeam: string, awayTeam: string, homeScore: number, awayScore: number, stats: any) {
+  const commentaries = [
+    `${homeTeam}의 공격력이 ${awayTeam}의 수비를 뚫었습니다!`,
+    `${awayTeam}의 역습이 날카롭게 들어갔습니다!`,
+    `${homeTeam}의 조직력이 경기를 지배하고 있습니다.`,
+    `${awayTeam}의 골 결정력이 빛을 발했습니다!`,
+    `${homeTeam}의 폼이 최근 상승세입니다.`,
+    `치열한 중원 싸움이 예상됩니다.`,
+    `${homeScore > awayScore ? homeTeam : awayTeam}의 압도적인 경기력이 돋보입니다!`,
+    `양 팀 모두 치열하게 승부를 펼쳤습니다.`,
+  ];
+  
+  const idx = (stats.attack + stats.defense) % commentaries.length;
+  return commentaries[idx];
 }
 
-interface CollectionResult {
-  totalChecked: number;
-  newlySaved: number;
-  skippedDuplicates: number;
-  errors: number;
-  logs: string[];
-  quotaRemaining: number;
-}
-
-interface EnrichResult {
-  enriched: number;
-  errors: number;
-  total: number;
-  logs: string[];
+interface SimulationResult {
+  homeScore: number;
+  awayScore: number;
+  homeWinProb: number;
+  drawProb: number;
+  awayWinProb: number;
+  commentary: string;
+  winner: 'home' | 'draw' | 'away';
 }
 
 export default function Laboratory() {
-  const [trainingResult, setTrainingResult] = useState<TrainingResult | null>(null);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [processedCount, setProcessedCount] = useState(0);
-  const [collectionResult, setCollectionResult] = useState<CollectionResult | null>(null);
-  const [enrichResult, setEnrichResult] = useState<EnrichResult | null>(null);
-  const [activeTab, setActiveTab] = useState<'training' | 'collection'>('training');
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [homeTeamId, setHomeTeamId] = useState<string>("");
+  const [awayTeamId, setAwayTeamId] = useState<string>("");
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [result, setResult] = useState<SimulationResult | null>(null);
 
-  const { data: trainingData, isLoading: isLoadingData, refetch: refetchData } = useQuery<TrainingDataResponse>({
-    queryKey: ["/api/training-data"],
-    retry: false,
-    staleTime: 0, // Always refetch to stay synced with training_set.json
-  });
+  const homeTeam = PREMIER_LEAGUE_TEAMS.find(t => t.id === homeTeamId);
+  const awayTeam = PREMIER_LEAGUE_TEAMS.find(t => t.id === awayTeamId);
 
-  const { data: trainingSetStats, refetch: refetchStats } = useQuery<TrainingSetStats>({
-    queryKey: ["/api/training-set/stats"],
-    staleTime: 0, // Always refetch to stay synced
-    retry: false,
-  });
+  const homeStats = useMemo(() => homeTeamId ? generateTeamStats(homeTeamId) : null, [homeTeamId]);
+  const awayStats = useMemo(() => awayTeamId ? generateTeamStats(awayTeamId) : null, [awayTeamId]);
 
-  const trainMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/train");
-      return response.json();
-    },
-    onSuccess: (data: { result: TrainingResult }) => {
-      setTrainingResult(data.result);
-      setIsAnimating(false);
-    },
-    onError: (error) => {
-      console.error("Training failed:", error);
-      setIsAnimating(false);
-    },
-  });
+  const radarData = useMemo(() => {
+    if (!homeStats || !awayStats) return [];
+    return [
+      { stat: "ATT", home: homeStats.attack, away: awayStats.attack, fullMark: 100 },
+      { stat: "DEF", home: homeStats.defense, away: awayStats.defense, fullMark: 100 },
+      { stat: "ORG", home: homeStats.organization, away: awayStats.organization, fullMark: 100 },
+      { stat: "FORM", home: homeStats.form, away: awayStats.form, fullMark: 100 },
+      { stat: "GOAL", home: homeStats.goalScoring, away: awayStats.goalScoring, fullMark: 100 },
+    ];
+  }, [homeStats, awayStats]);
 
-  const collectMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/collect-data");
-      return response.json();
-    },
-    onSuccess: (data: CollectionResult) => {
-      setCollectionResult(data);
-      // Invalidate both queries to sync training and collection counts
-      queryClient.invalidateQueries({ queryKey: ["/api/training-set/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/training-data"] });
-    },
-    onError: (error) => {
-      console.error("Data collection failed:", error);
-    },
-  });
+  const handleSimulate = async () => {
+    if (!homeTeam || !awayTeam || !homeStats || !awayStats) return;
+    
+    setIsSimulating(true);
+    setResult(null);
+    
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-  const enrichMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/enrich-data");
-      return response.json();
-    },
-    onSuccess: (data: EnrichResult) => {
-      setEnrichResult(data);
-      queryClient.invalidateQueries({ queryKey: ["/api/training-set/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/training-data"] });
-    },
-    onError: (error) => {
-      console.error("Data enrichment failed:", error);
-    },
-  });
+    const homeStrength = (homeStats.attack + homeStats.organization + homeStats.goalScoring + homeStats.form) / 4 + 5;
+    const awayStrength = (awayStats.attack + awayStats.organization + awayStats.goalScoring + awayStats.form) / 4;
 
-  const handleStartEnrich = () => {
-    setEnrichResult(null);
-    enrichMutation.mutate();
-  };
+    const totalStrength = homeStrength + awayStrength;
+    let homeWinProb = Math.round((homeStrength / totalStrength) * 100);
+    let awayWinProb = Math.round((awayStrength / totalStrength) * 100);
+    
+    const drawAdjust = 15 + Math.floor(Math.abs(homeStrength - awayStrength) / 5);
+    homeWinProb = Math.max(10, homeWinProb - drawAdjust / 2);
+    awayWinProb = Math.max(10, awayWinProb - drawAdjust / 2);
+    const drawProb = 100 - homeWinProb - awayWinProb;
 
-  const handleStartTraining = async () => {
-    setTrainingResult(null);
-    setIsAnimating(true);
-    setProcessedCount(0);
+    const random = Math.random() * 100;
+    let winner: 'home' | 'draw' | 'away';
+    let homeScore: number;
+    let awayScore: number;
 
-    const matchCount = trainingData?.count || 10;
-    for (let i = 0; i <= matchCount; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 80));
-      setProcessedCount(i);
+    if (random < homeWinProb) {
+      winner = 'home';
+      homeScore = 1 + Math.floor(Math.random() * 3);
+      awayScore = Math.floor(Math.random() * homeScore);
+    } else if (random < homeWinProb + drawProb) {
+      winner = 'draw';
+      homeScore = Math.floor(Math.random() * 3);
+      awayScore = homeScore;
+    } else {
+      winner = 'away';
+      awayScore = 1 + Math.floor(Math.random() * 3);
+      homeScore = Math.floor(Math.random() * awayScore);
     }
 
-    trainMutation.mutate();
+    const commentary = generateCommentary(
+      homeTeam.shortName, 
+      awayTeam.shortName, 
+      homeScore, 
+      awayScore, 
+      homeStats
+    );
+
+    setResult({
+      homeScore,
+      awayScore,
+      homeWinProb,
+      drawProb,
+      awayWinProb,
+      commentary,
+      winner,
+    });
+    setIsSimulating(false);
   };
 
-  const handleStartCollection = () => {
-    setCollectionResult(null);
-    collectMutation.mutate();
-  };
-
-  const handleDownloadBackup = async () => {
-    setIsDownloading(true);
-    try {
-      const response = await fetch("/api/training-set/download");
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData.error === "NO_DATA") {
-          alert("백업할 데이터가 없습니다! 먼저 수집을 진행해주세요.");
-        } else {
-          alert("다운로드 중 오류가 발생했습니다.");
-        }
-        return;
-      }
-      
-      const blob = await response.blob();
-      const contentDisposition = response.headers.get("Content-Disposition");
-      let filename = "soccer_ai_backup.json";
-      
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="(.+)"/);
-        if (match) filename = match[1];
-      }
-      
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      alert("백업할 데이터가 없습니다! 먼저 수집을 진행해주세요.");
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  const matches = trainingData?.matches || [];
+  const canSimulate = homeTeamId && awayTeamId && homeTeamId !== awayTeamId;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -200,508 +171,262 @@ export default function Laboratory() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Beaker className="h-5 w-5 text-primary" />
-              <h1 className="text-lg font-bold" data-testid="text-lab-title">실험실 (Laboratory)</h1>
+              <h1 className="text-lg font-bold" data-testid="text-lab-title">AI 가상 매치</h1>
             </div>
-            <div className="flex flex-col items-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownloadBackup}
-                disabled={isDownloading}
-                data-testid="button-download-backup"
-              >
-                {isDownloading ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-1" />
-                )}
-                백업 다운로드
-              </Button>
-              <span className="text-xs text-muted-foreground mt-1">클릭 시 PC에 파일로 저장됩니다</span>
-            </div>
+            <ThemeToggle />
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            실제 API 데이터로 AI 예측 엔진을 학습시킵니다
+            프리미어리그 팀들의 가상 대결을 시뮬레이션합니다
           </p>
         </div>
       </header>
 
       <main className="px-4 py-4 max-w-2xl mx-auto space-y-4">
-        <div className="flex gap-2">
-          <Button
-            variant={activeTab === 'training' ? 'default' : 'outline'}
-            onClick={() => {
-              setActiveTab('training');
-              refetchData();
-              refetchStats();
-            }}
-            className="flex-1"
-            data-testid="tab-training"
-          >
-            <GraduationCap className="h-4 w-4 mr-2" />
-            AI 학습
-          </Button>
-          <Button
-            variant={activeTab === 'collection' ? 'default' : 'outline'}
-            onClick={() => {
-              setActiveTab('collection');
-              refetchData();
-              refetchStats();
-            }}
-            className="flex-1"
-            data-testid="tab-collection"
-          >
-            <Database className="h-4 w-4 mr-2" />
-            데이터 수집
-          </Button>
-        </div>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Swords className="h-4 w-4 text-primary" />
+              팀 선택
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">홈팀</label>
+                <Select value={homeTeamId} onValueChange={setHomeTeamId}>
+                  <SelectTrigger data-testid="select-home-team">
+                    <SelectValue placeholder="홈팀 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PREMIER_LEAGUE_TEAMS.map((team) => (
+                      <SelectItem 
+                        key={team.id} 
+                        value={team.id}
+                        disabled={team.id === awayTeamId}
+                      >
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">원정팀</label>
+                <Select value={awayTeamId} onValueChange={setAwayTeamId}>
+                  <SelectTrigger data-testid="select-away-team">
+                    <SelectValue placeholder="원정팀 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PREMIER_LEAGUE_TEAMS.map((team) => (
+                      <SelectItem 
+                        key={team.id} 
+                        value={team.id}
+                        disabled={team.id === homeTeamId}
+                      >
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-        {activeTab === 'collection' && (
-          <>
-            <Card className="border-blue-500/30 bg-blue-500/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Download className="h-4 w-4 text-blue-500" />
-                  스마트 데이터 수집
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  API-Football에서 2023-24 시즌 경기 데이터를 수집합니다.
-                  <span className="block mt-1 text-xs">
-                    중복 체크: Fixture ID 기준 | 일일 한도: 80경기
-                  </span>
-                </p>
-
-                {trainingSetStats && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="bg-muted rounded-md p-2">
-                        <div className="text-xl font-bold">{trainingSetStats.totalMatches}</div>
-                        <div className="text-xs text-muted-foreground">총 데이터</div>
-                      </div>
-                      <div className="bg-muted rounded-md p-2">
-                        <div className="text-xl font-bold text-green-500">{trainingSetStats.highQualityCount}</div>
-                        <div className="text-xs text-muted-foreground">고품질(스탯)</div>
-                      </div>
-                      <div className="bg-muted rounded-md p-2">
-                        <div className="text-xl font-bold text-amber-500">{trainingSetStats.basicDataCount}</div>
-                        <div className="text-xs text-muted-foreground">기본(스코어)</div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground text-center">
-                      팀 수: {trainingSetStats.uniqueTeams}개 | 일일 수집 한도: 80경기
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleStartCollection}
-                    disabled={collectMutation.isPending}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                    data-testid="button-start-collection"
-                  >
-                    {collectMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        수집 중...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4 mr-2" />
-                        데이터 수집 시작
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => refetchStats()}
-                    data-testid="button-refresh-stats"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
+            {homeTeam && awayTeam && (
+              <div className="text-center py-2">
+                <div className="flex items-center justify-center gap-4">
+                  <span className="font-bold text-destructive">{homeTeam.shortName}</span>
+                  <span className="text-muted-foreground">vs</span>
+                  <span className="font-bold text-primary">{awayTeam.shortName}</span>
                 </div>
+              </div>
+            )}
 
-                <div className="border-t pt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">데이터 고도화</span>
-                    <span className="text-xs text-muted-foreground">기본 → 고품질</span>
-                  </div>
-                  <Button
-                    onClick={handleStartEnrich}
-                    disabled={enrichMutation.isPending || (trainingSetStats?.basicDataCount === 0)}
-                    variant="outline"
-                    className="w-full border-amber-500/50 hover:bg-amber-500/10"
-                    data-testid="button-start-enrich"
-                  >
-                    {enrichMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        배치 처리 중...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="h-4 w-4 mr-2" />
-                        배치 고도화 (100경기)
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-1 text-center">
-                    10경기/1호출 | 최대 10배치 = 100경기
-                  </p>
+            <Button
+              onClick={handleSimulate}
+              disabled={!canSimulate || isSimulating}
+              className="w-full"
+              size="lg"
+              data-testid="button-simulate"
+            >
+              {isSimulating ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  AI 분석 중...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-5 w-5 mr-2" />
+                  AI 가상 대결 시작
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {radarData.length > 0 && homeTeam && awayTeam && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Target className="h-4 w-4 text-primary" />
+                팀 전력 비교
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
+                    <PolarGrid stroke="hsl(var(--muted-foreground))" strokeOpacity={0.3} />
+                    <PolarAngleAxis 
+                      dataKey="stat" 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} 
+                    />
+                    <PolarRadiusAxis 
+                      angle={30} 
+                      domain={[0, 100]} 
+                      tick={{ fontSize: 9 }}
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeOpacity={0.3}
+                    />
+                    <Radar
+                      name={homeTeam.shortName}
+                      dataKey="home"
+                      stroke="hsl(var(--destructive))"
+                      fill="hsl(var(--destructive))"
+                      fillOpacity={0.3}
+                    />
+                    <Radar
+                      name={awayTeam.shortName}
+                      dataKey="away"
+                      stroke="hsl(var(--primary))"
+                      fill="hsl(var(--primary))"
+                      fillOpacity={0.3}
+                    />
+                    <Legend />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-5 gap-1 text-center text-xs mt-2">
+                <div>
+                  <Shield className="h-3 w-3 mx-auto text-muted-foreground" />
+                  <span className="text-muted-foreground">ATT: 공격</span>
                 </div>
-              </CardContent>
-            </Card>
-
-            <AnimatePresence>
-              {enrichResult && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  <Card className="border-amber-500/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2 text-amber-600">
-                        <Zap className="h-4 w-4" />
-                        고도화 완료
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="bg-green-500/10 rounded-md p-2">
-                          <div className="text-lg font-bold text-green-600">{enrichResult.enriched}</div>
-                          <div className="text-xs text-muted-foreground">업그레이드</div>
-                        </div>
-                        <div className="bg-red-500/10 rounded-md p-2">
-                          <div className="text-lg font-bold text-red-600">{enrichResult.errors}</div>
-                          <div className="text-xs text-muted-foreground">오류</div>
-                        </div>
-                        <div className="bg-muted rounded-md p-2">
-                          <div className="text-lg font-bold">{enrichResult.total}</div>
-                          <div className="text-xs text-muted-foreground">총 데이터</div>
-                        </div>
-                      </div>
-                      <div className="bg-muted rounded-md p-3 max-h-48 overflow-y-auto">
-                        <div className="text-xs font-mono space-y-1">
-                          {enrichResult.logs.map((log, i) => (
-                            <div 
-                              key={i} 
-                              className={
-                                log.includes('✅') ? 'text-green-600' : 
-                                log.includes('❌') ? 'text-red-500' : 
-                                log.includes('⚠️') ? 'text-amber-500' :
-                                log.includes('배치 처리 중') ? 'text-blue-500 font-semibold' :
-                                log.includes('고도화 완료') ? 'text-green-600 font-semibold' :
-                                ''
-                              }
-                            >
-                              {log}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-              {collectionResult && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  <Card className="border-green-500/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2 text-green-600">
-                        <CheckCircle2 className="h-4 w-4" />
-                        수집 완료
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-4 gap-2 text-center">
-                        <div className="bg-muted rounded-md p-2">
-                          <div className="text-lg font-bold">{collectionResult.totalChecked}</div>
-                          <div className="text-xs text-muted-foreground">총 확인</div>
-                        </div>
-                        <div className="bg-green-500/10 rounded-md p-2">
-                          <div className="text-lg font-bold text-green-600">{collectionResult.newlySaved}</div>
-                          <div className="text-xs text-muted-foreground">신규 저장</div>
-                        </div>
-                        <div className="bg-amber-500/10 rounded-md p-2">
-                          <div className="text-lg font-bold text-amber-600">{collectionResult.skippedDuplicates}</div>
-                          <div className="text-xs text-muted-foreground">중복 스킵</div>
-                        </div>
-                        <div className="bg-muted rounded-md p-2">
-                          <div className="text-lg font-bold">{collectionResult.quotaRemaining}</div>
-                          <div className="text-xs text-muted-foreground">남은 한도</div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <h4 className="text-sm font-medium flex items-center gap-1">
-                          <FileJson className="h-4 w-4" />
-                          수집 로그
-                        </h4>
-                        <ScrollArea className="h-[200px] rounded-md border bg-muted/30 p-3">
-                          <div className="space-y-1 text-xs font-mono">
-                            {collectionResult.logs.map((log, index) => (
-                              <div
-                                key={index}
-                                className="text-muted-foreground"
-                                data-testid={`log-${index}`}
-                              >
-                                {log}
-                              </div>
-                            ))}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                      
-                      <div className="mt-4 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
-                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                          <CheckCircle2 className="h-5 w-5" />
-                          <span className="font-semibold">
-                            총 저장된 데이터: {trainingSetStats?.totalMatches || 0}개 (중복 제거됨)
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </>
+                <div>
+                  <Shield className="h-3 w-3 mx-auto text-muted-foreground" />
+                  <span className="text-muted-foreground">DEF: 수비</span>
+                </div>
+                <div>
+                  <Activity className="h-3 w-3 mx-auto text-muted-foreground" />
+                  <span className="text-muted-foreground">ORG: 조직력</span>
+                </div>
+                <div>
+                  <TrendingUp className="h-3 w-3 mx-auto text-muted-foreground" />
+                  <span className="text-muted-foreground">FORM: 폼</span>
+                </div>
+                <div>
+                  <Goal className="h-3 w-3 mx-auto text-muted-foreground" />
+                  <span className="text-muted-foreground">GOAL: 결정력</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        {activeTab === 'training' && (
-          <>
-            <Card className="border-primary/30 bg-primary/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4 text-primary" />
-                  AI 학습 모드 (실제 데이터)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  API-Football에서 가져온 <span className="font-bold text-primary">{matches.length}경기</span> 실제 결과 데이터를 사용하여 
-                  AI 예측 알고리즘을 훈련합니다.
-                </p>
-                
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleStartTraining}
-                    disabled={isAnimating || trainMutation.isPending || isLoadingData || matches.length === 0}
-                    className="flex-1"
-                    data-testid="button-start-training"
-                  >
-                    {isAnimating || trainMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        학습 중... ({processedCount}/{matches.length})
-                      </>
-                    ) : (
-                      <>
-                        <Play className="h-4 w-4 mr-2" />
-                        학습 시작
-                      </>
-                    )}
-                  </Button>
+        <AnimatePresence>
+          {result && homeTeam && awayTeam && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <Card className="border-primary/50 overflow-hidden">
+                <div className="bg-gradient-to-r from-destructive/20 via-background to-primary/20 p-6">
+                  <div className="text-center mb-4">
+                    <Badge variant="secondary" className="mb-2">AI 예측 결과</Badge>
+                    <h3 className="text-lg font-bold">가상 대결 결과</h3>
+                  </div>
                   
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => refetchData()}
-                    disabled={isLoadingData}
-                    data-testid="button-refresh-data"
+                  <div className="flex items-center justify-center gap-8">
+                    <div className="text-center">
+                      <div className="text-sm text-muted-foreground mb-1">홈</div>
+                      <div className="font-bold text-lg text-destructive">{homeTeam.shortName}</div>
+                      <motion.div 
+                        className="text-5xl font-bold mt-2"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.2, type: "spring" }}
+                      >
+                        {result.homeScore}
+                      </motion.div>
+                    </div>
+                    
+                    <div className="text-2xl text-muted-foreground">-</div>
+                    
+                    <div className="text-center">
+                      <div className="text-sm text-muted-foreground mb-1">원정</div>
+                      <div className="font-bold text-lg text-primary">{awayTeam.shortName}</div>
+                      <motion.div 
+                        className="text-5xl font-bold mt-2"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.3, type: "spring" }}
+                      >
+                        {result.awayScore}
+                      </motion.div>
+                    </div>
+                  </div>
+
+                  <motion.div 
+                    className="mt-6 text-center"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
                   >
-                    <RefreshCw className={`h-4 w-4 ${isLoadingData ? 'animate-spin' : ''}`} />
-                  </Button>
+                    <Badge 
+                      className={`text-base px-4 py-1 ${
+                        result.winner === 'home' ? 'bg-destructive' :
+                        result.winner === 'away' ? 'bg-primary' :
+                        'bg-muted-foreground'
+                      }`}
+                      data-testid="badge-winner"
+                    >
+                      {result.winner === 'home' ? `${homeTeam.shortName} 승리` :
+                       result.winner === 'away' ? `${awayTeam.shortName} 승리` :
+                       '무승부'}
+                    </Badge>
+                  </motion.div>
                 </div>
-              </CardContent>
-            </Card>
 
-            <AnimatePresence>
-              {trainingResult && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  <Card className="border-primary/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2 text-primary">
-                        <CheckCircle2 className="h-4 w-4" />
-                        학습 완료
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-2 text-center">
-                        <div className="bg-muted rounded-md p-3">
-                          <div className="text-2xl font-bold">{trainingResult.totalMatches}</div>
-                          <div className="text-xs text-muted-foreground">분석 경기</div>
-                        </div>
-                        <div className="bg-muted rounded-md p-3">
-                          <div className="text-2xl font-bold text-destructive">{trainingResult.significantErrors}</div>
-                          <div className="text-xs text-muted-foreground">주요 오류</div>
-                        </div>
-                      </div>
-
-                      <div className="bg-gradient-to-r from-amber-500/20 to-green-500/20 rounded-lg p-4 text-center">
-                        <div className="text-sm text-muted-foreground mb-2">적중률 개선</div>
-                        <div className="flex items-center justify-center gap-3">
-                          <span className="text-2xl font-bold text-amber-600">{trainingResult.initialAccuracy}%</span>
-                          <TrendingUp className="h-5 w-5 text-green-500" />
-                          <span className="text-2xl font-bold text-green-600">{trainingResult.adjustedAccuracy}%</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          +{trainingResult.adjustedAccuracy - trainingResult.initialAccuracy}% 향상
-                        </div>
-                      </div>
-
-                      {trainingResult.tuningWeights.length > 0 && (
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium flex items-center gap-1">
-                            <AlertTriangle className="h-4 w-4 text-amber-500" />
-                            가중치 조정 내역
-                          </h4>
-                          {trainingResult.tuningWeights.map((weight, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center justify-between bg-muted/50 rounded-md p-2 text-sm"
-                              data-testid={`weight-adjustment-${index}`}
-                            >
-                              <span className="font-medium">{variableLabels[weight.variable]}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">{weight.originalWeight.toFixed(2)}</span>
-                                <TrendingUp className="h-3 w-3 text-primary" />
-                                <span className="text-primary font-medium">{weight.adjustedWeight.toFixed(2)}</span>
-                                <Badge variant="secondary" className="text-xs">1.2x</Badge>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="space-y-2 pt-2 border-t border-border">
-                        <h4 className="text-sm font-medium">분석 인사이트</h4>
-                        {trainingResult.insights.map((insight, index) => (
-                          <p
-                            key={index}
-                            className="text-sm text-muted-foreground bg-muted/30 rounded-md p-2"
-                            data-testid={`insight-${index}`}
-                          >
-                            {insight}
-                          </p>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center justify-between">
-                  <span>실제 경기 결과 (2023-24 시즌)</span>
-                  {isLoadingData && <Loader2 className="h-4 w-4 animate-spin" />}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoadingData ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-3 gap-2 text-center mb-4">
+                    <div>
+                      <div className="text-xl font-bold text-destructive">{result.homeWinProb}%</div>
+                      <div className="text-xs text-muted-foreground">홈 승</div>
+                    </div>
+                    <div>
+                      <div className="text-xl font-bold text-muted-foreground">{result.drawProb}%</div>
+                      <div className="text-xs text-muted-foreground">무승부</div>
+                    </div>
+                    <div>
+                      <div className="text-xl font-bold text-primary">{result.awayWinProb}%</div>
+                      <div className="text-xs text-muted-foreground">원정 승</div>
+                    </div>
                   </div>
-                ) : matches.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>데이터를 불러오지 못했습니다.</p>
-                    <Button variant="ghost" onClick={() => refetchData()} className="mt-2">
-                      다시 시도
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {matches.map((match) => (
-                      <div
-                        key={match.id}
-                        className="flex items-center justify-between p-2 rounded-md bg-muted/30 text-sm"
-                        data-testid={`training-match-${match.id}`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{match.homeTeam.name} vs {match.awayTeam.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(match.date).toLocaleDateString('ko-KR')}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="font-bold text-foreground">
-                            {match.homeScore} - {match.awayScore}
-                          </span>
-                          <Badge
-                            variant={match.actualResult === 'home_win' ? 'default' : match.actualResult === 'away_win' ? 'secondary' : 'outline'}
-                            className="text-xs"
-                          >
-                            {resultLabels[match.actualResult]}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
-            {trainingResult && trainingResult.matchDetails.length > 0 && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">예측 vs 실제 결과 비교</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                    {trainingResult.matchDetails.map((match) => (
-                      <div
-                        key={match.id}
-                        className={`flex items-center justify-between p-2 rounded-md text-sm ${
-                          match.wasCorrect ? 'bg-green-500/10' : 'bg-destructive/10'
-                        }`}
-                        data-testid={`prediction-result-${match.id}`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{match.matchTitle}</div>
-                          <div className="text-xs text-muted-foreground">
-                            예측: {resultLabels[match.predictedResult]} ({match.aiPrediction}%)
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {match.wasCorrect ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          )}
-                          <Badge variant={match.wasCorrect ? "default" : "destructive"}>
-                            {match.homeScore}-{match.awayScore}
-                          </Badge>
-                          {!match.wasCorrect && (
-                            <span className="text-xs text-destructive">
-                              -{match.errorMargin}%
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <motion.div 
+                    className="bg-muted/50 rounded-lg p-4 text-center"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.7 }}
+                    data-testid="text-commentary"
+                  >
+                    <Trophy className="h-5 w-5 mx-auto mb-2 text-yellow-500" />
+                    <p className="text-sm font-medium">{result.commentary}</p>
+                  </motion.div>
                 </CardContent>
               </Card>
-            )}
-          </>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
