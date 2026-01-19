@@ -24,6 +24,14 @@ A mobile-first web application that analyzes soccer match win probabilities usin
 - Legend explaining trend meanings: up = decreasing popularity, down = increasing popularity
 - Three columns for home win, draw, and away win odds
 
+### AI Comprehensive Analysis Report (AI 종합 분석 리포트)
+- Rule-based text generation providing narrative analysis at bottom of match detail page
+- Dark card UI with "expert memo/briefing" style for professional appearance
+- Sections: Home team analysis, Away team analysis, Weather impact (if applicable), Conclusion
+- Text generation based on detected factors: fatigue, form, streaks, league ranking, probability differences
+- Formal Korean tone (입니다/예상됩니다 style) for authoritative voice
+- Conclusion logic: 20%+ probability gap = decisive winner, close match = draw prediction
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
