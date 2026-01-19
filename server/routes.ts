@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { fetchHistoricalMatchesWithResults, fetchCompletedFixtures, fetchStandingsForSeason, isApiConfigured, fetchFixtureStatistics, fetchFixtureLineups, fetchBatchFixtures, type BatchFixtureData } from "./api-football";
+import { fetchHistoricalMatchesWithResults, fetchCompletedFixtures, fetchStandingsForSeason, isApiConfigured, fetchBatchFixtures } from "./api-football";
 import { 
   loadTrainingData, 
   saveTrainingData, 
