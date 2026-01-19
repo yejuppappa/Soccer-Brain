@@ -37,8 +37,16 @@ const MOCK_VENUES = [
 
 const WEATHER_CONDITIONS: WeatherCondition[] = ['sunny', 'cloudy', 'rainy', 'snowy'];
 
-function generateMockMatches(): Match[] {
-  const matches: Match[] = [];
+interface ExtendedMatch extends Match {
+  aiProb: {
+    home: number;
+    draw: number;
+    away: number;
+  };
+}
+
+function generateMockMatches(): ExtendedMatch[] {
+  const matches: ExtendedMatch[] = [];
   const usedPairs = new Set<string>();
   
   for (let i = 0; i < 20; i++) {
@@ -68,6 +76,22 @@ function generateMockMatches(): Match[] {
         results.push(r < 0.4 ? 'W' : r < 0.7 ? 'D' : 'L');
       }
       return results;
+    };
+
+    // Generate AI probabilities that sum to 100%
+    const homeBase = 30 + Math.floor(Math.random() * 40); // 30-70%
+    const drawBase = 15 + Math.floor(Math.random() * 20); // 15-35%
+    const awayBase = 100 - homeBase - drawBase;
+    // Ensure all are positive
+    const homeProb = Math.max(10, homeBase);
+    const drawProb = Math.max(10, drawBase);
+    const awayProb = Math.max(10, 100 - homeProb - drawProb);
+    // Normalize to exactly 100
+    const total = homeProb + drawProb + awayProb;
+    const aiProb = {
+      home: Math.round((homeProb / total) * 100),
+      draw: Math.round((drawProb / total) * 100),
+      away: 100 - Math.round((homeProb / total) * 100) - Math.round((drawProb / total) * 100),
     };
     
     matches.push({
@@ -114,6 +138,7 @@ function generateMockMatches(): Match[] {
           Math.random() < 0.3 ? 'down' : Math.random() < 0.6 ? 'stable' : 'up',
         ] as [("up" | "down" | "stable"), ("up" | "down" | "stable"), ("up" | "down" | "stable")],
       },
+      aiProb,
     });
   }
   
@@ -144,24 +169,30 @@ function TrendIcon({ trend }: { trend: 'up' | 'down' | 'stable' }) {
   }
 }
 
-interface OddsButtonProps {
+interface AIProbButtonProps {
   label: string;
+  aiProb: number;
   odds: number;
   trend: 'up' | 'down' | 'stable';
   isSelected: boolean;
+  isHighest: boolean;
   onClick: (e: React.MouseEvent) => void;
   testId: string;
 }
 
-function OddsButton({ label, odds, trend, isSelected, onClick, testId }: OddsButtonProps) {
+function AIProbButton({ label, aiProb, odds, trend, isSelected, isHighest, onClick, testId }: AIProbButtonProps) {
+  const highlightClasses = isHighest && !isSelected 
+    ? "bg-blue-500/10 border-blue-500/50 dark:bg-blue-500/20 dark:border-blue-400/50" 
+    : "";
+  
   return (
-    <Button
-      variant={isSelected ? "default" : "outline"}
-      size="sm"
-      onClick={onClick}
-      className="flex-1 flex flex-col items-center gap-0.5 relative"
-      data-testid={testId}
-    >
+    <div className="h-20">
+      <Button
+        variant={isSelected ? "default" : "outline"}
+        onClick={onClick}
+        className={`w-full h-full flex flex-col items-center justify-center gap-1 relative transition-all ${highlightClasses}`}
+        data-testid={testId}
+      >
       {trend === 'down' && (
         <Badge 
           variant="destructive" 
@@ -171,12 +202,24 @@ function OddsButton({ label, odds, trend, isSelected, onClick, testId }: OddsBut
           HOT
         </Badge>
       )}
-      <span className="text-[10px] opacity-70">{label}</span>
+      {isHighest && !isSelected && (
+        <Badge 
+          variant="secondary" 
+          className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] px-1.5 py-0 h-4 bg-blue-500 text-white border-0"
+        >
+          AI Pick
+        </Badge>
+      )}
+      <span className="text-[10px] text-muted-foreground">{label}</span>
+      <span className={`font-bold text-xl ${isHighest ? 'text-blue-600 dark:text-blue-400' : ''}`}>
+        {aiProb}%
+      </span>
       <div className="flex items-center gap-1">
-        <span className="font-bold text-sm">{odds.toFixed(2)}</span>
+        <span className="text-xs text-muted-foreground">{odds.toFixed(2)}배</span>
         <TrendIcon trend={trend} />
       </div>
-    </Button>
+      </Button>
+    </div>
   );
 }
 
@@ -192,7 +235,24 @@ export default function Schedule() {
 
   const { matches, isDemo } = useMemo(() => {
     if (data?.matches && data.matches.length > 0) {
-      return { matches: data.matches, isDemo: false };
+      // Add AI probabilities to API matches (normalized to 100%)
+      return { 
+        matches: data.matches.map(m => {
+          const homeBase = 30 + Math.floor(Math.random() * 40);
+          const drawBase = 15 + Math.floor(Math.random() * 20);
+          const awayBase = 15 + Math.floor(Math.random() * 30);
+          const total = homeBase + drawBase + awayBase;
+          return {
+            ...m,
+            aiProb: {
+              home: Math.round((homeBase / total) * 100),
+              draw: Math.round((drawBase / total) * 100),
+              away: 100 - Math.round((homeBase / total) * 100) - Math.round((drawBase / total) * 100),
+            }
+          };
+        }) as ExtendedMatch[], 
+        isDemo: false 
+      };
     }
     return { matches: generateMockMatches(), isDemo: true };
   }, [data?.matches]);
@@ -214,7 +274,7 @@ export default function Schedule() {
         <header className="sticky top-0 z-40 bg-background border-b">
           <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
+              <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               <h1 className="font-bold text-lg">경기 일정</h1>
             </div>
             <ThemeToggle />
@@ -248,7 +308,7 @@ export default function Schedule() {
       <header className="sticky top-0 z-40 bg-background border-b">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
+            <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             <h1 className="font-bold text-lg">경기 일정</h1>
             {isDemo && !isLoading && (
               <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/50 bg-amber-500/10">
@@ -275,6 +335,13 @@ export default function Schedule() {
           <div className="space-y-3">
             {matches.map((match) => {
               const currentPick = getPickForMatch(match.id);
+              // Find highest AI probability
+              const probs = [
+                { key: 'home', value: match.aiProb.home },
+                { key: 'draw', value: match.aiProb.draw },
+                { key: 'away', value: match.aiProb.away },
+              ];
+              const highestKey = probs.reduce((a, b) => a.value > b.value ? a : b).key;
               
               return (
                 <Card
@@ -286,13 +353,13 @@ export default function Schedule() {
                     className="p-3 cursor-pointer hover-elevate"
                     onClick={() => navigate(`/match/${match.id}`)}
                   >
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">{formatTime(match.matchTime)}</span>
                         <span className="text-xs text-muted-foreground">·</span>
-                        <span className="text-xs text-muted-foreground">{match.venue}</span>
+                        <span className="text-xs text-muted-foreground truncate">{match.venue}</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <WeatherIcon condition={match.weather.condition} />
                         <span className="text-xs text-muted-foreground">{match.weather.temperature}°C</span>
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -328,32 +395,54 @@ export default function Schedule() {
                     </div>
                   </div>
                   
-                  <div className="px-3 pb-3 border-t pt-3 bg-muted/30">
-                    <div className="flex gap-2">
-                      <OddsButton
+                  {/* AI Probability Buttons - Fixed Grid Layout */}
+                  <div className="px-3 py-3 border-t bg-muted/30">
+                    <div className="grid grid-cols-3 gap-2">
+                      <AIProbButton
                         label="홈승"
+                        aiProb={match.aiProb.home}
                         odds={match.odds.domestic[0]}
                         trend={match.odds.domesticTrend[0]}
                         isSelected={currentPick?.selection === 'home'}
+                        isHighest={highestKey === 'home'}
                         onClick={(e) => handleOddsClick(match, 'home', match.odds.domestic[0], e)}
                         testId={`button-odds-home-${match.id}`}
                       />
-                      <OddsButton
+                      <AIProbButton
                         label="무승부"
+                        aiProb={match.aiProb.draw}
                         odds={match.odds.domestic[1]}
                         trend={match.odds.domesticTrend[1]}
                         isSelected={currentPick?.selection === 'draw'}
+                        isHighest={highestKey === 'draw'}
                         onClick={(e) => handleOddsClick(match, 'draw', match.odds.domestic[1], e)}
                         testId={`button-odds-draw-${match.id}`}
                       />
-                      <OddsButton
+                      <AIProbButton
                         label="원정승"
+                        aiProb={match.aiProb.away}
                         odds={match.odds.domestic[2]}
                         trend={match.odds.domesticTrend[2]}
                         isSelected={currentPick?.selection === 'away'}
+                        isHighest={highestKey === 'away'}
                         onClick={(e) => handleOddsClick(match, 'away', match.odds.domestic[2], e)}
                         testId={`button-odds-away-${match.id}`}
                       />
+                    </div>
+                  </div>
+                  
+                  {/* Domestic vs Overseas Odds Footer */}
+                  <div className="px-3 py-2 bg-muted/50 border-t">
+                    <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <span className="font-medium">KR</span>
+                        <span>{match.odds.domestic[0].toFixed(2)}</span>
+                      </span>
+                      <span className="text-muted-foreground/50">vs</span>
+                      <span className="flex items-center gap-1">
+                        <span className="font-medium">EU</span>
+                        <span>{match.odds.overseas[0].toFixed(2)}</span>
+                      </span>
                     </div>
                   </div>
                 </Card>
