@@ -49,16 +49,20 @@ Preferred communication style: Simple, everyday language.
 - **Build Tool**: Vite with hot module replacement
 
 The frontend follows a page-based structure with reusable components:
-- `/` - Match list showing today's games with selectable probability badges
+- `/` - Home dashboard with AI Top Picks and Dropping Odds
+- `/schedule` - Match schedule list showing today's games
 - `/match/:id` - Detailed match analysis with interactive probability controls
-- `/prediction` - Prediction strategy page with selected matches and total odds calculation
 - `/lab` - Laboratory page for backtesting AI predictions against historical data
+- `/history` - AI prediction history (placeholder)
+- `/my` - User profile and settings (placeholder)
 
 ### Bottom Tab Navigation
-Three main tabs at bottom of screen:
-- **분석 (Analysis)**: Match list with selectable win/draw/loss probabilities
-- **예측 (Prediction)**: Selected prediction cart with total odds and AI probability
-- **실험실 (Laboratory)**: Backtesting simulator with auto-tuning engine
+Five main tabs at bottom of screen:
+- **홈 (Home)**: Main dashboard with Soccer Brain header, ticker banner, AI Top Picks, Dropping Odds
+- **일정 (Schedule)**: Full match schedule list with weather and form indicators
+- **실험실 (Lab)**: Backtesting simulator with auto-tuning engine and data collection
+- **적중내역 (History)**: AI prediction results vs actual results comparison (placeholder)
+- **마이 (My)**: User profile and settings (placeholder)
 
 ### Backend Architecture
 - **Framework**: Express.js 5 on Node.js
