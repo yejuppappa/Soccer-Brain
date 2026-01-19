@@ -226,16 +226,20 @@ export default function Home() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-6">
-        {/* Ticker Banner */}
+        {/* Ticker Banner - Clickable */}
         <div 
-          className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-lg p-3"
+          className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-lg p-3 cursor-pointer hover-elevate"
           data-testid="ticker-banner"
+          onClick={() => navigate("/history")}
         >
-          <div className="flex items-center gap-2 text-sm">
-            <Megaphone className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            <span className="font-medium text-amber-700 dark:text-amber-400">
-              어제 AI 예측 적중률 80% 달성! (4/5)
-            </span>
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <Megaphone className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <span className="font-medium text-amber-700 dark:text-amber-400">
+                어제 AI 예측 적중률 80% 달성! (4/5)
+              </span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           </div>
         </div>
 
