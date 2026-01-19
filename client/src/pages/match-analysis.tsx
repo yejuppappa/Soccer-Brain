@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProbabilityGaugeBar } from "@/components/probability-gauge-bar";
 import { InsightCards, detectFactors } from "@/components/insight-cards";
 import { OddsMovement } from "@/components/odds-movement";
+import { AnalysisReport } from "@/components/analysis-report";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { MatchAnalysisResponse, WinDrawLossProbability, WeatherCondition } from "@shared/schema";
 
@@ -273,6 +274,14 @@ export default function MatchAnalysis() {
                 </div>
               </div>
             </Card>
+
+            {/* AI Comprehensive Analysis Report */}
+            <AnalysisReport
+              homeTeam={analysis!.homeTeam}
+              awayTeam={analysis!.awayTeam}
+              weather={analysis!.weather}
+              probability={calculatedProbability}
+            />
           </div>
         )}
       </main>
