@@ -15,7 +15,158 @@ import { TeamRadarChart } from "@/components/team-radar-chart";
 import { PredictedScore } from "@/components/predicted-score";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { MatchAnalysisResponse, WinDrawLossProbability, WeatherCondition, VoteChoice, UserVote } from "@shared/schema";
+import type { MatchAnalysisResponse, MatchAnalysis, WinDrawLossProbability, WeatherCondition, VoteChoice, UserVote, Team, Weather, Odds } from "@shared/schema";
+
+const MOCK_TEAMS: { [key: string]: Omit<Team, 'recentResults' | 'topScorer' | 'lastMatchDaysAgo'> } = {
+  "team-m1": { id: "team-m1", name: "Manchester City", shortName: "MCI", logoUrl: "https://media.api-sports.io/football/teams/50.png", leagueRank: 1 },
+  "team-m2": { id: "team-m2", name: "Arsenal", shortName: "ARS", logoUrl: "https://media.api-sports.io/football/teams/42.png", leagueRank: 2 },
+  "team-m3": { id: "team-m3", name: "Liverpool", shortName: "LIV", logoUrl: "https://media.api-sports.io/football/teams/40.png", leagueRank: 3 },
+  "team-m4": { id: "team-m4", name: "Aston Villa", shortName: "AVL", logoUrl: "https://media.api-sports.io/football/teams/66.png", leagueRank: 4 },
+  "team-m5": { id: "team-m5", name: "Tottenham", shortName: "TOT", logoUrl: "https://media.api-sports.io/football/teams/47.png", leagueRank: 5 },
+  "team-m6": { id: "team-m6", name: "Chelsea", shortName: "CHE", logoUrl: "https://media.api-sports.io/football/teams/49.png", leagueRank: 6 },
+  "team-m7": { id: "team-m7", name: "Newcastle", shortName: "NEW", logoUrl: "https://media.api-sports.io/football/teams/34.png", leagueRank: 7 },
+  "team-m8": { id: "team-m8", name: "Manchester United", shortName: "MUN", logoUrl: "https://media.api-sports.io/football/teams/33.png", leagueRank: 8 },
+  "team-m9": { id: "team-m9", name: "West Ham", shortName: "WHU", logoUrl: "https://media.api-sports.io/football/teams/48.png", leagueRank: 9 },
+  "team-m10": { id: "team-m10", name: "Brighton", shortName: "BHA", logoUrl: "https://media.api-sports.io/football/teams/51.png", leagueRank: 10 },
+  "team-m11": { id: "team-m11", name: "Real Madrid", shortName: "RMA", logoUrl: "https://media.api-sports.io/football/teams/541.png", leagueRank: 1 },
+  "team-m12": { id: "team-m12", name: "Barcelona", shortName: "BAR", logoUrl: "https://media.api-sports.io/football/teams/529.png", leagueRank: 2 },
+};
+
+function generateMockAnalysis(matchId: string): MatchAnalysis {
+  const seed = matchId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const rand = (offset: number) => {
+    const x = Math.sin(seed + offset) * 10000;
+    return x - Math.floor(x);
+  };
+
+  const teamKeys = Object.keys(MOCK_TEAMS);
+  const homeIdx = seed % teamKeys.length;
+  let awayIdx = (seed + 3) % teamKeys.length;
+  if (homeIdx === awayIdx) awayIdx = (awayIdx + 1) % teamKeys.length;
+
+  const homeBase = MOCK_TEAMS[teamKeys[homeIdx]];
+  const awayBase = MOCK_TEAMS[teamKeys[awayIdx]];
+
+  const generateRecentResults = (offset: number): ('W' | 'D' | 'L')[] => {
+    const results: ('W' | 'D' | 'L')[] = [];
+    for (let i = 0; i < 5; i++) {
+      const r = rand(offset + i);
+      results.push(r < 0.5 ? 'W' : r < 0.75 ? 'D' : 'L');
+    }
+    return results;
+  };
+
+  const homeTeam: Team = {
+    ...homeBase,
+    recentResults: generateRecentResults(1),
+    topScorer: { 
+      name: "Erling Haaland", 
+      goals: Math.floor(rand(10) * 15) + 10, 
+      isInjured: rand(11) < 0.2 
+    },
+    lastMatchDaysAgo: Math.floor(rand(12) * 5) + 2,
+  };
+
+  const awayTeam: Team = {
+    ...awayBase,
+    recentResults: generateRecentResults(20),
+    topScorer: { 
+      name: "Bukayo Saka", 
+      goals: Math.floor(rand(30) * 12) + 5, 
+      isInjured: rand(31) < 0.15 
+    },
+    lastMatchDaysAgo: Math.floor(rand(32) * 6) + 1,
+  };
+
+  const weatherConditions: WeatherCondition[] = ['sunny', 'cloudy', 'rainy', 'snowy'];
+  const weather: Weather = {
+    condition: weatherConditions[seed % 4],
+    temperature: Math.floor(rand(40) * 20) + 5,
+    icon: weatherConditions[seed % 4],
+  };
+
+  const odds: Odds = {
+    domestic: [1.8 + rand(50) * 2, 3.2 + rand(51) * 0.8, 2.5 + rand(52) * 2] as [number, number, number],
+    overseas: [1.85 + rand(53) * 2, 3.3 + rand(54) * 0.8, 2.6 + rand(55) * 2] as [number, number, number],
+    domesticTrend: [
+      rand(60) < 0.3 ? 'down' : rand(60) < 0.6 ? 'stable' : 'up',
+      rand(61) < 0.3 ? 'down' : rand(61) < 0.6 ? 'stable' : 'up',
+      rand(62) < 0.3 ? 'down' : rand(62) < 0.6 ? 'stable' : 'up',
+    ] as [("up" | "down" | "stable"), ("up" | "down" | "stable"), ("up" | "down" | "stable")],
+    overseasTrend: [
+      rand(70) < 0.3 ? 'down' : rand(70) < 0.6 ? 'stable' : 'up',
+      rand(71) < 0.3 ? 'down' : rand(71) < 0.6 ? 'stable' : 'up',
+      rand(72) < 0.3 ? 'down' : rand(72) < 0.6 ? 'stable' : 'up',
+    ] as [("up" | "down" | "stable"), ("up" | "down" | "stable"), ("up" | "down" | "stable")],
+  };
+
+  const homeWinBase = 45 + (awayTeam.leagueRank - homeTeam.leagueRank) * 2;
+  const awayWinBase = 35 - (awayTeam.leagueRank - homeTeam.leagueRank) * 2;
+  const drawBase = 100 - homeWinBase - awayWinBase;
+
+  return {
+    matchId,
+    homeTeam,
+    awayTeam,
+    weather,
+    odds,
+    lineup: {
+      status: rand(80) < 0.3 ? 'confirmed' : 'predicted',
+      confirmedAt: rand(80) < 0.3 ? new Date().toISOString() : undefined,
+    },
+    cores: {
+      core1: {
+        name: "기초 체력",
+        description: `홈팀 ${homeTeam.leagueRank}위 vs 원정팀 ${awayTeam.leagueRank}위 기반 기본 승률`,
+        baseValue: homeWinBase,
+        adjustedValue: homeWinBase + Math.floor(rand(90) * 5),
+        isActive: true,
+      },
+      core2Home: {
+        name: "홈팀 피로도",
+        description: `마지막 경기 ${homeTeam.lastMatchDaysAgo}일 전`,
+        baseValue: homeTeam.lastMatchDaysAgo < 3 ? -12 : 0,
+        adjustedValue: homeTeam.lastMatchDaysAgo < 3 ? -12 : 0,
+        isActive: homeTeam.lastMatchDaysAgo < 3,
+      },
+      core2Away: {
+        name: "원정팀 피로도", 
+        description: `마지막 경기 ${awayTeam.lastMatchDaysAgo}일 전`,
+        baseValue: awayTeam.lastMatchDaysAgo < 3 ? -10 : 0,
+        adjustedValue: awayTeam.lastMatchDaysAgo < 3 ? -10 : 0,
+        isActive: awayTeam.lastMatchDaysAgo < 3,
+      },
+      core3Home: {
+        name: "홈팀 핵심 선수",
+        description: homeTeam.topScorer.isInjured 
+          ? `${homeTeam.topScorer.name} 부상으로 인해 결장`
+          : `${homeTeam.topScorer.name} ${homeTeam.topScorer.goals}골 출전 예정`,
+        baseValue: homeTeam.topScorer.isInjured ? -20 : 5,
+        adjustedValue: homeTeam.topScorer.isInjured ? -20 : 5,
+        isActive: true,
+      },
+      core3Away: {
+        name: "원정팀 핵심 선수",
+        description: awayTeam.topScorer.isInjured
+          ? `${awayTeam.topScorer.name} 부상으로 인해 결장`
+          : `${awayTeam.topScorer.name} ${awayTeam.topScorer.goals}골 출전 예정`,
+        baseValue: awayTeam.topScorer.isInjured ? -18 : 3,
+        adjustedValue: awayTeam.topScorer.isInjured ? -18 : 3,
+        isActive: true,
+      },
+    },
+    baseProbability: {
+      homeWin: Math.min(70, Math.max(20, homeWinBase)),
+      draw: Math.min(35, Math.max(15, drawBase)),
+      awayWin: Math.min(60, Math.max(15, awayWinBase)),
+    },
+    adjustedProbability: {
+      homeWin: Math.min(75, Math.max(15, homeWinBase + Math.floor(rand(100) * 10) - 5)),
+      draw: Math.min(40, Math.max(10, drawBase + Math.floor(rand(101) * 6) - 3)),
+      awayWin: Math.min(65, Math.max(10, awayWinBase + Math.floor(rand(102) * 10) - 5)),
+    },
+  };
+}
 
 function WeatherIcon({ condition }: { condition: WeatherCondition }) {
   switch (condition) {
@@ -36,14 +187,17 @@ export default function MatchAnalysis() {
   const [showLineupNotice, setShowLineupNotice] = useState(false);
   const [selectedVote, setSelectedVote] = useState<VoteChoice | null>(null);
 
+  const isDemoId = params.id?.startsWith('demo-') || false;
+
   const { data, isLoading, error } = useQuery<MatchAnalysisResponse>({
     queryKey: ["/api/matches", params.id, "analysis"],
+    enabled: !isDemoId,
   });
 
   // Fetch existing vote for this match
   const { data: voteData } = useQuery<{ vote: UserVote | null }>({
     queryKey: ["/api/votes", params.id],
-    enabled: !!params.id,
+    enabled: !!params.id && !isDemoId,
   });
 
   // Submit vote mutation
@@ -56,7 +210,14 @@ export default function MatchAnalysis() {
     },
   });
 
-  const analysis = data?.analysis;
+  const analysis = useMemo(() => {
+    if (isDemoId || error || (!isLoading && !data?.analysis)) {
+      return generateMockAnalysis(params.id || 'demo-default');
+    }
+    return data?.analysis;
+  }, [isDemoId, error, isLoading, data?.analysis, params.id]);
+
+  const isDemo = isDemoId || error || (!isLoading && !data?.analysis);
 
   // Show lineup confirmation notice if confirmed
   useEffect(() => {
@@ -135,20 +296,6 @@ export default function MatchAnalysis() {
     return { homeWin: Math.round(homeWin), draw: Math.round(draw), awayWin: Math.round(awayWin) };
   }, [analysis]);
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <p className="text-destructive font-medium" data-testid="text-error">분석 데이터를 불러오는데 실패했습니다</p>
-          <Button variant="outline" className="mt-4" onClick={() => navigate("/")}>
-            목록으로 돌아가기
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-background border-b">
@@ -161,21 +308,28 @@ export default function MatchAnalysis() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-base font-bold flex-1 text-center truncate">
-            {isLoading ? "로딩 중..." : `${analysis?.homeTeam.name} vs ${analysis?.awayTeam.name}`}
-          </h1>
+          <div className="flex-1 flex items-center justify-center gap-2">
+            <h1 className="text-base font-bold truncate">
+              {isLoading && !isDemoId ? "로딩 중..." : `${analysis?.homeTeam.name} vs ${analysis?.awayTeam.name}`}
+            </h1>
+            {isDemo && !isLoading && (
+              <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/50 bg-amber-500/10">
+                Demo
+              </Badge>
+            )}
+          </div>
           <ThemeToggle />
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6">
-        {isLoading ? (
+        {isLoading && !isDemoId ? (
           <div className="space-y-4">
             <Skeleton className="h-40 rounded-lg" />
             <Skeleton className="h-32 rounded-lg" />
             <Skeleton className="h-24 rounded-lg" />
           </div>
-        ) : (
+        ) : analysis ? (
           <div className="space-y-6">
             {/* Lineup Confirmation Notice Animation */}
             <AnimatePresence>
@@ -424,7 +578,7 @@ export default function MatchAnalysis() {
               probability={calculatedProbability}
             />
           </div>
-        )}
+        ) : null}
       </main>
     </div>
   );
