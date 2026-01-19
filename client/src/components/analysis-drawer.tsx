@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Trash2, Sparkles, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { X, Trash2, Sparkles, AlertTriangle, CheckCircle, Loader2, TrendingUp, Zap, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -7,10 +7,57 @@ import { usePicks } from "@/contexts/pick-context";
 import { motion, AnimatePresence } from "framer-motion";
 
 type AnalysisResult = {
-  type: 'success' | 'warning' | 'neutral';
+  type: 'success' | 'warning' | 'danger' | 'jackpot' | 'neutral';
+  title: string;
   message: string;
   details: string[];
 };
+
+const AI_COMMENTS = {
+  safe: [
+    '안전빵이네요! 꾸준함이 승리의 비결입니다.',
+    '이 정도면 편하게 잘 수 있겠어요.',
+    '착실한 선택! 소확행을 노려보세요.',
+    '리스크 최소화! 현명한 선택입니다.',
+  ],
+  balanced: [
+    '밸런스 좋네요! AI도 이 조합 좋아해요.',
+    '적당한 스릴과 적당한 안정감!',
+    '교과서적인 조합이에요.',
+    '이 정도면 도전해볼 만해요!',
+  ],
+  risky: [
+    '심장이 두근두근... 조심하세요!',
+    '용기 있는 선택이네요. 행운을 빕니다!',
+    '변동성이 좀 있어요. 각오하셨죠?',
+    '도전 정신은 좋지만, 신중하게!',
+  ],
+  danger: [
+    '이건 좀... 다시 생각해보세요!',
+    '무모한 도전! AI가 말렸는데...',
+    '고위험 고수익! 하지만 대부분은...',
+    '이 조합은 AI도 책임 못 져요!',
+  ],
+  jackpot: [
+    '대박 아니면 쪽박! 올인 각오하셨죠?',
+    '인생 역전 노리시는 건가요?',
+    '성공하면 전설이 됩니다!',
+    '이건 로또급 도전이에요!',
+  ],
+};
+
+function getRandomComment(category: keyof typeof AI_COMMENTS): string {
+  const comments = AI_COMMENTS[category];
+  return comments[Math.floor(Math.random() * comments.length)];
+}
+
+function getOddsTier(totalOdds: number): { tier: string; color: string } {
+  if (totalOdds < 2) return { tier: '안전', color: 'text-green-600 dark:text-green-400' };
+  if (totalOdds < 5) return { tier: '균형', color: 'text-blue-600 dark:text-blue-400' };
+  if (totalOdds < 10) return { tier: '도전', color: 'text-amber-600 dark:text-amber-400' };
+  if (totalOdds < 30) return { tier: '위험', color: 'text-orange-600 dark:text-orange-400' };
+  return { tier: '대박', color: 'text-red-600 dark:text-red-400' };
+}
 
 function analyzePicksCombination(picks: typeof usePicks extends () => { picks: infer P } ? P : never): AnalysisResult {
   const count = picks.length;
@@ -18,6 +65,7 @@ function analyzePicksCombination(picks: typeof usePicks extends () => { picks: i
   if (count === 0) {
     return {
       type: 'neutral',
+      title: '분석 대기',
       message: '분석할 경기를 담아주세요',
       details: []
     };
@@ -25,31 +73,69 @@ function analyzePicksCombination(picks: typeof usePicks extends () => { picks: i
 
   const totalOdds = picks.reduce((acc, p) => acc * p.odds, 1);
   const hasHighOdds = picks.some(p => p.odds > 3.0);
+  const hasVeryHighOdds = picks.some(p => p.odds > 4.0);
   const hasLowOdds = picks.every(p => p.odds < 2.0);
   const drawCount = picks.filter(p => p.selection === 'draw').length;
+  const homeCount = picks.filter(p => p.selection === 'home').length;
+  const awayCount = picks.filter(p => p.selection === 'away').length;
+
+  if (totalOdds >= 30) {
+    return {
+      type: 'jackpot',
+      title: '대박 조합!',
+      message: getRandomComment('jackpot'),
+      details: [
+        `${count}폴 조합`,
+        `총 배당률: ${totalOdds.toFixed(2)}배`,
+        '적중 시 엄청난 수익!',
+        'AI 경고: 성공 확률은 매우 낮습니다'
+      ]
+    };
+  }
+
+  if (totalOdds >= 10 || (hasVeryHighOdds && count >= 2)) {
+    return {
+      type: 'danger',
+      title: '위험 조합',
+      message: getRandomComment('danger'),
+      details: [
+        `${count}폴 조합`,
+        `총 배당률: ${totalOdds.toFixed(2)}배`,
+        hasVeryHighOdds ? '초고배당 경기 포함' : '',
+        'AI 추천: 일부 경기를 제외해보세요'
+      ].filter(Boolean)
+    };
+  }
 
   if (count === 1) {
     if (picks[0].odds < 1.5) {
       return {
         type: 'success',
-        message: '안정적인 단폴 선택이에요!',
-        details: ['낮은 배당률로 적중 가능성이 높습니다', '단폴은 리스크가 적은 전략입니다']
+        title: '안전 단폴',
+        message: getRandomComment('safe'),
+        details: [
+          `배당률: ${picks[0].odds.toFixed(2)}배`,
+          '낮은 리스크, 안정적인 선택'
+        ]
       };
     }
     return {
       type: 'neutral',
-      message: '단폴 분석 완료',
-      details: [`예상 배당률: ${picks[0].odds.toFixed(2)}`]
+      title: '단폴 분석',
+      message: getRandomComment('balanced'),
+      details: [`배당률: ${picks[0].odds.toFixed(2)}배`]
     };
   }
 
   if (hasHighOdds && count >= 3) {
     return {
       type: 'warning',
-      message: '위험한 경기가 섞여 있습니다!',
+      title: '주의 필요',
+      message: getRandomComment('risky'),
       details: [
+        `${count}폴 조합`,
+        `총 배당률: ${totalOdds.toFixed(2)}배`,
         '고배당 경기가 포함되어 있어요',
-        `${count}폴 조합의 총 배당률: ${totalOdds.toFixed(2)}`,
         'AI 추천: 고배당 경기를 제외해보세요'
       ]
     };
@@ -58,11 +144,12 @@ function analyzePicksCombination(picks: typeof usePicks extends () => { picks: i
   if (drawCount >= 2) {
     return {
       type: 'warning',
-      message: '무승부 조합은 변동성이 커요',
+      title: '무승부 다수',
+      message: getRandomComment('risky'),
       details: [
         `무승부 ${drawCount}개 포함`,
-        '무승부는 예측 난이도가 높습니다',
-        'AI 추천: 무승부는 1개 이하로 줄여보세요'
+        `총 배당률: ${totalOdds.toFixed(2)}배`,
+        '무승부는 예측 난이도가 높습니다'
       ]
     };
   }
@@ -70,11 +157,13 @@ function analyzePicksCombination(picks: typeof usePicks extends () => { picks: i
   if (hasLowOdds && count <= 3) {
     return {
       type: 'success',
-      message: '이 조합은 성공 확률이 높아요!',
+      title: '안전 조합',
+      message: getRandomComment('safe'),
       details: [
-        '안정적인 배당률로 구성되어 있습니다',
-        `${count}폴 조합의 총 배당률: ${totalOdds.toFixed(2)}`,
-        'AI 분석: 좋은 조합입니다'
+        `${count}폴 조합`,
+        `총 배당률: ${totalOdds.toFixed(2)}배`,
+        '안정적인 배당률 구성',
+        `홈승 ${homeCount}개 / 무승부 ${drawCount}개 / 원정승 ${awayCount}개`
       ]
     };
   }
@@ -82,22 +171,24 @@ function analyzePicksCombination(picks: typeof usePicks extends () => { picks: i
   if (count >= 4) {
     return {
       type: 'warning',
-      message: '조합 수가 많아 리스크가 있어요',
+      title: '복잡한 조합',
+      message: getRandomComment('risky'),
       details: [
         `${count}폴 조합`,
-        `총 배당률: ${totalOdds.toFixed(2)}`,
-        'AI 추천: 3폴 이하로 줄이면 적중률이 올라갑니다'
+        `총 배당률: ${totalOdds.toFixed(2)}배`,
+        'AI 추천: 3폴 이하로 줄이면 적중률 상승'
       ]
     };
   }
 
   return {
     type: 'success',
-    message: '균형 잡힌 조합이에요!',
+    title: '균형 조합',
+    message: getRandomComment('balanced'),
     details: [
       `${count}폴 조합`,
-      `총 배당률: ${totalOdds.toFixed(2)}`,
-      'AI 분석 결과: 적절한 리스크/리턴 비율'
+      `총 배당률: ${totalOdds.toFixed(2)}배`,
+      `홈승 ${homeCount}개 / 무승부 ${drawCount}개 / 원정승 ${awayCount}개`
     ]
   };
 }
@@ -197,8 +288,8 @@ export function AnalysisDrawer() {
                             <Badge variant="default" className="text-xs">
                               {getSelectionLabel(pick.selection)}
                             </Badge>
-                            <span className="text-sm font-semibold text-primary">
-                              {pick.odds.toFixed(2)}
+                            <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                              {pick.odds.toFixed(2)}배
                             </span>
                           </div>
                         </div>
@@ -220,26 +311,47 @@ export function AnalysisDrawer() {
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
+                    data-testid="analysis-result"
                   >
                     <Card className={`p-4 mt-4 ${
                       analysisResult.type === 'success' ? 'bg-green-500/10 border-green-500/30' :
                       analysisResult.type === 'warning' ? 'bg-amber-500/10 border-amber-500/30' :
+                      analysisResult.type === 'danger' ? 'bg-orange-500/10 border-orange-500/30' :
+                      analysisResult.type === 'jackpot' ? 'bg-red-500/10 border-red-500/30' :
                       'bg-muted/50'
                     }`}>
                       <div className="flex items-start gap-3">
                         {analysisResult.type === 'success' ? (
-                          <CheckCircle className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                          <Shield className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
                         ) : analysisResult.type === 'warning' ? (
                           <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                        ) : analysisResult.type === 'danger' ? (
+                          <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+                        ) : analysisResult.type === 'jackpot' ? (
+                          <Zap className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                         ) : (
-                          <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                          <Sparkles className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
                         )}
-                        <div>
-                          <p className="font-semibold">{analysisResult.message}</p>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant={
+                              analysisResult.type === 'success' ? 'default' :
+                              analysisResult.type === 'jackpot' ? 'destructive' :
+                              'secondary'
+                            } className={
+                              analysisResult.type === 'success' ? 'bg-green-500' :
+                              analysisResult.type === 'warning' ? 'bg-amber-500' :
+                              analysisResult.type === 'danger' ? 'bg-orange-500' :
+                              analysisResult.type === 'jackpot' ? 'bg-red-500' : ''
+                            }>
+                              {analysisResult.title}
+                            </Badge>
+                          </div>
+                          <p className="font-semibold text-sm">{analysisResult.message}</p>
                           <ul className="mt-2 space-y-1">
                             {analysisResult.details.map((detail, i) => (
                               <li key={i} className="text-sm text-muted-foreground">
-                                • {detail}
+                                {detail}
                               </li>
                             ))}
                           </ul>
@@ -252,12 +364,28 @@ export function AnalysisDrawer() {
 
               {picks.length > 0 && (
                 <div className="p-4 border-t bg-background sticky bottom-0">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm text-muted-foreground">예상 총 배당률</span>
-                    <span className="text-xl font-bold text-primary">{totalOdds.toFixed(2)}</span>
+                  {/* Odds Summary with Tier Badge */}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">총 배당률</span>
+                      <Badge 
+                        variant="outline" 
+                        className={getOddsTier(totalOdds).color}
+                        data-testid="badge-odds-tier"
+                      >
+                        {getOddsTier(totalOdds).tier}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xl font-bold text-foreground" data-testid="text-total-odds">
+                        {totalOdds.toFixed(2)}배
+                      </span>
+                    </div>
                   </div>
                   <Button 
-                    className="w-full h-12 text-base font-semibold gap-2"
+                    size="lg"
+                    className="w-full gap-2"
                     onClick={handleAnalyze}
                     disabled={isAnalyzing}
                     data-testid="button-analyze-picks"
