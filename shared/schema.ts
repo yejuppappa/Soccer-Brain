@@ -207,6 +207,15 @@ export interface LineupInfo {
 // User Vote Types
 export type VoteChoice = 'home' | 'draw' | 'away';
 
+export const voteChoiceSchema = z.enum(['home', 'draw', 'away']);
+
+export const submitVoteSchema = z.object({
+  matchId: z.string().min(1, "matchId is required"),
+  choice: voteChoiceSchema,
+});
+
+export type SubmitVoteInput = z.infer<typeof submitVoteSchema>;
+
 export interface UserVote {
   id: string;
   matchId: string;
@@ -238,8 +247,10 @@ export interface DailyAccuracy {
 // User Stats for My page comparison
 export interface UserStats {
   totalVotes: number;
+  userTotal: number;
   userCorrect: number;
   userAccuracy: number;
+  aiTotal: number;
   aiCorrect: number;
   aiAccuracy: number;
 }

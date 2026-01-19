@@ -98,7 +98,7 @@ export default function History() {
 
             {/* Accuracy Line Chart */}
             <Card className="p-6" data-testid="card-accuracy-chart">
-              <h3 className="font-bold mb-4 flex items-center gap-2">
+              <h3 className="font-bold mb-4 flex items-center gap-2" data-testid="text-chart-title">
                 <TrendingUp className="h-5 w-5 text-primary" />
                 일별 적중률 추이
               </h3>
@@ -160,7 +160,7 @@ export default function History() {
 
             {/* Recent Predictions */}
             <Card className="p-6" data-testid="card-recent-predictions">
-              <h3 className="font-bold mb-4">최근 예측 결과</h3>
+              <h3 className="font-bold mb-4" data-testid="text-recent-title">최근 예측 결과</h3>
               {records.length > 0 ? (
                 <div className="space-y-3">
                   {records.slice(0, 10).map((record, index) => (

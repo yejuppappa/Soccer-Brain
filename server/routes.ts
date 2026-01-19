@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { submitVoteSchema } from "@shared/schema";
 import { fetchHistoricalMatchesWithResults, fetchCompletedFixtures, fetchStandingsForSeason, isApiConfigured, fetchBatchFixtures } from "./api-football";
 import { 
   loadTrainingData, 
@@ -301,13 +302,11 @@ export async function registerRoutes(
   // Vote endpoints
   app.post("/api/votes", async (req, res) => {
     try {
-      const { matchId, choice } = req.body;
-      if (!matchId || !choice) {
-        return res.status(400).json({ error: "matchId and choice are required" });
+      const parseResult = submitVoteSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.errors[0]?.message || "Invalid input" });
       }
-      if (!['home', 'draw', 'away'].includes(choice)) {
-        return res.status(400).json({ error: "Invalid choice. Must be 'home', 'draw', or 'away'" });
-      }
+      const { matchId, choice } = parseResult.data;
       const vote = await storage.submitVote(matchId, choice);
       res.json({ vote });
     } catch (error: any) {

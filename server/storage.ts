@@ -707,14 +707,17 @@ export class MemStorage implements IStorage {
   async getUserStats(): Promise<UserStats> {
     const recordsWithUserVotes = this.predictionRecords.filter(r => r.userPrediction);
     const totalVotes = recordsWithUserVotes.length;
+    const aiTotal = this.predictionRecords.length;
     
     if (totalVotes === 0) {
       return {
         totalVotes: 0,
+        userTotal: 0,
         userCorrect: 0,
         userAccuracy: 0,
-        aiCorrect: 0,
-        aiAccuracy: 0,
+        aiTotal,
+        aiCorrect: this.predictionRecords.filter(r => r.aiCorrect).length,
+        aiAccuracy: aiTotal > 0 ? Math.round((this.predictionRecords.filter(r => r.aiCorrect).length / aiTotal) * 100) : 0,
       };
     }
     
@@ -723,8 +726,10 @@ export class MemStorage implements IStorage {
     
     return {
       totalVotes,
+      userTotal: totalVotes,
       userCorrect,
       userAccuracy: Math.round((userCorrect / totalVotes) * 100),
+      aiTotal,
       aiCorrect,
       aiAccuracy: Math.round((aiCorrect / totalVotes) * 100),
     };

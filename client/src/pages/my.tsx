@@ -62,7 +62,7 @@ export default function My() {
 
         {/* Accuracy Comparison Chart */}
         <Card className="p-6" data-testid="card-accuracy-comparison">
-          <h3 className="font-bold mb-4 flex items-center gap-2">
+          <h3 className="font-bold mb-4 flex items-center gap-2" data-testid="text-comparison-title">
             <Target className="h-5 w-5 text-primary" />
             나 vs AI 적중률 비교
           </h3>

@@ -376,10 +376,8 @@ export default function MatchAnalysis() {
               </p>
               <div className="grid grid-cols-3 gap-3">
                 <Button
-                  variant={selectedVote === 'home' ? 'default' : 'outline'}
-                  className={`flex flex-col gap-1 h-auto py-4 ${
-                    selectedVote === 'home' ? 'bg-destructive text-white border-destructive' : ''
-                  }`}
+                  variant={selectedVote === 'home' ? 'destructive' : 'outline'}
+                  className="toggle-elevate flex flex-col gap-1"
                   onClick={() => handleVote('home')}
                   disabled={voteMutation.isPending}
                   data-testid="button-vote-home"
@@ -388,10 +386,8 @@ export default function MatchAnalysis() {
                   <span className="text-xs">{analysis!.homeTeam.shortName}</span>
                 </Button>
                 <Button
-                  variant={selectedVote === 'draw' ? 'default' : 'outline'}
-                  className={`flex flex-col gap-1 h-auto py-4 ${
-                    selectedVote === 'draw' ? 'bg-gray-500 text-white border-gray-500' : ''
-                  }`}
+                  variant={selectedVote === 'draw' ? 'secondary' : 'outline'}
+                  className="toggle-elevate flex flex-col gap-1"
                   onClick={() => handleVote('draw')}
                   disabled={voteMutation.isPending}
                   data-testid="button-vote-draw"
@@ -401,9 +397,7 @@ export default function MatchAnalysis() {
                 </Button>
                 <Button
                   variant={selectedVote === 'away' ? 'default' : 'outline'}
-                  className={`flex flex-col gap-1 h-auto py-4 ${
-                    selectedVote === 'away' ? 'bg-primary text-white border-primary' : ''
-                  }`}
+                  className="toggle-elevate flex flex-col gap-1"
                   onClick={() => handleVote('away')}
                   disabled={voteMutation.isPending}
                   data-testid="button-vote-away"
@@ -413,7 +407,7 @@ export default function MatchAnalysis() {
                 </Button>
               </div>
               {selectedVote && (
-                <div className="mt-4 text-center">
+                <div className="mt-4 text-center" data-testid="text-vote-status">
                   <Badge variant="secondary" className="gap-1">
                     <CheckCircle2 className="h-3 w-3" />
                     투표 완료
