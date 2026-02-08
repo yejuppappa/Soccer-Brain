@@ -10,8 +10,7 @@
  * ║  하는 일 (순서대로):                                      ║
  * ║  [Phase 1] 경기 일정 채우기 (리그×시즌 빠진 것)          ║
  * ║  [Phase 2] 경기 스탯 채우기 (FT인데 스탯 없는 것)        ║
- * ║  [Phase 3] pseudo-xG 생성 (xG NULL + 슈팅 있는 것)       ║
- * ║  [Phase 4] 피처 스냅샷 빌드 (스탯 있는데 피처 없는 것)   ║
+ * ║  [Phase 3] 피처 스냅샷 빌드 (스탯 있는데 피처 없는 것)   ║
  * ║                                                           ║
  * ║  70,000콜 한도 자동 관리. 한도 근접 시 자동 중단.        ║
  * ║  중단 후 다시 실행하면 이어서 진행. (이미 있는 건 스킵)  ║
@@ -33,7 +32,15 @@ const API_KEY = process.env.API_SPORTS_KEY || "";
 const DELAY_MS = 350;          // API 호출 간격 (초당 ~3콜)
 const MAX_API_CALLS = 65000;   // 70,000 중 5,000은 안전 여유분
 const SEASONS = [2020, 2021, 2022, 2023, 2024, 2025];
-const CALENDAR_YEAR_LEAGUES = new Set([292, 293, 98, 99, 253, 71, 128, 169, 307, 333, 17]);
+const CALENDAR_YEAR_LEAGUES = new Set([292, 293, 98, 99, 253, 71, 128, 169, 307, 333, 17, 18, 294]);
+
+// 리그별 최초 시즌 (이전 시즌은 API 콜 낭비 방지)
+const LEAGUE_START_SEASON: Record<number, number> = {
+  848: 2021,  // Europa Conference League: 2021-22부터
+  531: 2017,  // UEFA Super Cup (API 데이터)
+  18:  2017,  // AFC Cup
+  293: 2017,  // K League 2
+};
 
 // ============================================================
 // API 클라이언트 (콜 수 자동 추적)
@@ -107,6 +114,10 @@ async function phase1_fixtures(): Promise<number> {
   for (const league of leagues) {
     for (const season of SEASONS) {
       if (!canContinue()) return totalSynced;
+
+      // 리그별 최초 시즌 이전은 스킵
+      const startSeason = LEAGUE_START_SEASON[league.apiLeagueId];
+      if (startSeason && season < startSeason) continue;
 
       // 이미 있는지 확인
       const existing = await prisma.fixture.count({
@@ -715,8 +726,8 @@ async function main() {
     statsAdded = await phase2_stats();
   }
 
-  // Phase 3: pseudo-xG (API 콜 0)
-  const xgFilled = await phase3_pseudoXg();
+  // Phase 3: pseudo-xG — 비활성화 (노이즈)
+  // const xgFilled = await phase3_pseudoXg();
 
   // Phase 4: 피처 빌드 (API 콜 0)
   const featuresBuilt = await phase4_features();
@@ -734,8 +745,7 @@ async function main() {
 ╠═══════════════════════════════════════════════════════════╣
 ║  [Phase 1] 경기 추가:     ${String(fixturesAdded).padStart(8)}경기                  ║
 ║  [Phase 2] 스탯 추가:     ${String(statsAdded).padStart(8)}경기                  ║
-║  [Phase 3] pseudo-xG:     ${String(xgFilled).padStart(8)}개                    ║
-║  [Phase 4] 피처 빌드:     ${String(featuresBuilt).padStart(8)}개                    ║
+║  [Phase 3] 피처 빌드:     ${String(featuresBuilt).padStart(8)}개                    ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  ${canContinue() ? "✅ 정상 완료!" : "⚠️ API 한도로 중단됨. 내일 다시 실행하면 이어서 진행."}                                          ║
 ╚═══════════════════════════════════════════════════════════╝

@@ -33,7 +33,7 @@ import axios from "axios";
 // ============================================================
 // 상수 정의
 // ============================================================
-const CALENDAR_YEAR_LEAGUES = new Set([292, 293]); // K리그
+const CALENDAR_YEAR_LEAGUES = new Set([292, 293, 98, 99, 294, 17, 18]); // K리그, J리그, 한국FA컵, AFC
 const API_DELAY_MS = 300; // API 호출 간격 (속도 제한 방지)
 const LINEUP_CHECK_HOURS_BEFORE = 1; // 경기 몇 시간 전부터 라인업 체크
 
