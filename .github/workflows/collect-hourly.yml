@@ -34,7 +34,7 @@ jobs:
           cache: "npm"
 
       - name: 📦 의존성 설치
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
         env:
           PUPPETEER_SKIP_DOWNLOAD: "true"
 
