@@ -3,12 +3,12 @@
 #
 # GitHub Actions가 클라우드에서 실행 → PC 꺼져도 데이터 수집 계속
 
-name: ⚽ Hourly Data Collection
+name: ⚽ 10min Data Collection
 
 on:
   schedule:
     # 매 시간 정각 (UTC) → 한국시간으로도 매 시간
-    - cron: "0 * * * *"
+    - cron: "*/10 * * * *"
   
   # 수동 실행 (테스트/디버그용)
   workflow_dispatch:
