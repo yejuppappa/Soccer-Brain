@@ -32,9 +32,12 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    host: "0.0.0.0", // 👈 이 줄이 핵심입니다! (모든 IP 접속 허용)
+    port: 5173,      // (선택사항) 포트 번호 고정
     fs: {
       strict: true,
       deny: ["**/.*"],
     },
   },
 });
+

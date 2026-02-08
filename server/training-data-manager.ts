@@ -33,7 +33,7 @@ export interface CollectionResult {
 }
 
 const TRAINING_DATA_PATH = path.join(process.cwd(), "training_set.json");
-const DAILY_QUOTA = 80;
+const DAILY_QUOTA = 70000;
 
 export async function loadTrainingData(): Promise<TrainingDataSet> {
   try {

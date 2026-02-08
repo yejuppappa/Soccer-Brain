@@ -1,0 +1,76 @@
+# ⚽ Soccer Brain - 일별 데이터 수집
+# 경기 일정, 부상자, 날씨, 국내배당
+
+name: 📅 Daily Data Collection
+
+on:
+  schedule:
+    # 06:00 KST = 21:00 UTC (전날) → 경기 일정
+    - cron: "0 21 * * *"
+    # 08:00 KST = 23:00 UTC (전날) → 부상자 1차
+    - cron: "0 23 * * *"
+    # 09:00 KST = 00:00 UTC → 날씨
+    - cron: "0 0 * * *"
+    # 10:00 KST = 01:00 UTC → 국내배당 1차
+    - cron: "0 1 * * *"
+    # 16:00 KST = 07:00 UTC → 국내배당 2차
+    - cron: "0 7 * * *"
+    # 18:00 KST = 09:00 UTC → 부상자 2차
+    - cron: "0 9 * * *"
+
+  workflow_dispatch:
+    inputs:
+      tasks:
+        description: "실행할 태스크 (쉼표 구분)"
+        required: false
+        default: "fixtures,injuries,weather"
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 📥 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 🟢 Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: 📦 의존성 설치
+        run: npm ci --ignore-scripts
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+
+      - name: 🔧 Prisma 생성
+        run: npx prisma generate
+
+      - name: 🤖 태스크 결정
+        id: decide
+        run: |
+          if [ -n "${{ github.event.inputs.tasks }}" ]; then
+            TASKS=$(echo "${{ github.event.inputs.tasks }}" | tr ',' ' ')
+          else
+            # cron 시간대에 따라 태스크 자동 결정
+            HOUR_UTC=$(date -u +%H)
+            case $HOUR_UTC in
+              21) TASKS="fixtures" ;;           # 06:00 KST
+              23) TASKS="injuries" ;;           # 08:00 KST
+              00) TASKS="weather" ;;            # 09:00 KST
+              01) TASKS="domestic" ;;           # 10:00 KST
+              07) TASKS="domestic" ;;           # 16:00 KST
+              09) TASKS="injuries" ;;           # 18:00 KST
+              *)  TASKS="fixtures injuries weather" ;;
+            esac
+          fi
+          echo "tasks=$TASKS" >> $GITHUB_OUTPUT
+          echo "📋 실행: $TASKS"
+
+      - name: 🤖 데이터 수집
+        run: npx tsx scripts/collect.ts ${{ steps.decide.outputs.tasks }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}

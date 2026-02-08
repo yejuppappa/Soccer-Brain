@@ -1,4 +1,4 @@
-import { Home, Calendar, BarChart3, Trophy, User } from "lucide-react";
+import { Home, Search, Radio, ClipboardCheck, User } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface TabItem {
@@ -9,9 +9,9 @@ interface TabItem {
 
 const tabs: TabItem[] = [
   { path: "/", label: "홈", icon: Home },
-  { path: "/schedule", label: "일정", icon: Calendar },
-  { path: "/league", label: "리그", icon: BarChart3 },
-  { path: "/history", label: "적중내역", icon: Trophy },
+  { path: "/analysis", label: "분석", icon: Search },
+  { path: "/live", label: "라이브", icon: Radio },
+  { path: "/results", label: "결과", icon: ClipboardCheck },
   { path: "/my", label: "마이", icon: User },
 ];
 
@@ -19,14 +19,15 @@ export function BottomTabNavigation() {
   const [location, setLocation] = useLocation();
 
   const isActive = (path: string) => {
-    if (path === "/") {
-      return location === "/";
-    }
-    if (path === "/schedule") {
-      return location === "/schedule" || location.startsWith("/match/");
+    if (path === "/") return location === "/";
+    if (path === "/analysis") {
+      return location === "/analysis" || location.startsWith("/match/");
     }
     return location === path || location.startsWith(path + "/");
   };
+
+  // admin 페이지에서는 네비게이션 숨김
+  if (location.startsWith("/admin")) return null;
 
   return (
     <nav 
@@ -49,6 +50,9 @@ export function BottomTabNavigation() {
               }`}
               data-testid={`tab-${tab.label}`}
             >
+              {tab.path === "/live" && (
+                <span className="absolute top-2 right-1/4 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+              )}
               <Icon className={`h-5 w-5 ${active ? 'stroke-[2.5px]' : ''}`} />
               <span className={`text-[10px] ${active ? 'font-bold' : 'font-medium'}`}>{tab.label}</span>
             </button>

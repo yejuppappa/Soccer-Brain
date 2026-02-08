@@ -9,11 +9,24 @@ import {
   Legend,
 } from "recharts";
 import { Card } from "@/components/ui/card";
-import type { Team } from "@shared/schema";
+
+// V7 Features 기반 팀 데이터 타입
+interface TeamData {
+  id: string;
+  name: string;
+  shortName: string;
+  logoUrl: string;
+  color?: string;
+  attack: number;      // homeGoalsFor / awayGoalsFor
+  defense: number;     // 3 - goalsAgainst
+  form: number;        // Form5 (최근 5경기 평균 승점)
+  organization: number; // WinsAtHome / WinsAtAway (%)
+  goalScoring: number; // GoalsAtHome / GoalsAtAway
+}
 
 interface TeamRadarChartProps {
-  homeTeam: Team;
-  awayTeam: Team;
+  homeTeam: TeamData;
+  awayTeam: TeamData;
 }
 
 interface PowerStat {
@@ -23,29 +36,22 @@ interface PowerStat {
   away: number;
 }
 
-function calculateTeamPower(team: Team): { attack: number; defense: number; organization: number; form: number; goal: number } {
-  const wins = team.recentResults.filter(r => r === 'W').length;
-  const draws = team.recentResults.filter(r => r === 'D').length;
-  const losses = team.recentResults.filter(r => r === 'L').length;
+// V7 features 기반 파워 계산
+function calculateTeamPower(team: TeamData): { attack: number; defense: number; organization: number; form: number; goal: number } {
+  // attack: 평균 득점 기반 (0-3골 → 0-100점)
+  const attack = Math.min(100, Math.round((team.attack / 3) * 100));
   
-  const formScore = ((wins * 3 + draws) / 15) * 100;
+  // defense: 실점 기반 (낮을수록 좋음, 이미 3 - goalsAgainst로 변환됨)
+  const defense = Math.min(100, Math.round((team.defense / 3) * 100));
   
-  const rankScore = Math.max(0, 100 - (team.leagueRank - 1) * 5);
+  // organization: 홈/원정 승률 (0-100%)
+  const organization = Math.min(100, Math.round(team.organization));
   
-  const goalScore = Math.min(100, 50 + team.topScorer.goals * 5);
+  // form: 최근 5경기 평균 승점 (0-3점 → 0-100점)
+  const form = Math.min(100, Math.round((team.form / 3) * 100));
   
-  let winStreak = 0;
-  for (const r of team.recentResults) {
-    if (r === 'W') winStreak++;
-    else break;
-  }
-  const momentumBonus = winStreak * 8;
-  
-  const attack = Math.min(100, Math.round(rankScore * 0.4 + goalScore * 0.4 + formScore * 0.2));
-  const defense = Math.min(100, Math.round(rankScore * 0.5 + (100 - losses * 15) * 0.5));
-  const organization = Math.min(100, Math.round(rankScore * 0.6 + formScore * 0.4));
-  const form = Math.min(100, Math.round(formScore + momentumBonus));
-  const goal = Math.min(100, Math.round(goalScore));
+  // goal: 홈/원정 평균 득점 (0-3골 → 0-100점)
+  const goal = Math.min(100, Math.round((team.goalScoring / 3) * 100));
   
   return { attack, defense, organization, form, goal };
 }
@@ -79,50 +85,56 @@ export function TeamRadarChart({ homeTeam, awayTeam }: TeamRadarChartProps) {
               tick={{ 
                 fill: 'hsl(var(--foreground))', 
                 fontSize: 11,
-                fontWeight: 600
+                fontWeight: 500 
               }}
             />
             <PolarRadiusAxis 
               angle={90} 
               domain={[0, 100]} 
-              tick={{ fontSize: 9 }}
-              tickCount={5}
-              stroke="hsl(var(--muted-foreground))"
-              strokeOpacity={0.3}
+              tick={false}
+              axisLine={false}
             />
             <Radar
-              name={homeTeam.shortName}
+              name={homeTeam.shortName || homeTeam.name.slice(0, 3)}
               dataKey="home"
-              stroke="#ef4444"
-              fill="#ef4444"
+              stroke="hsl(var(--chart-1))"
+              fill="hsl(var(--chart-1))"
               fillOpacity={0.3}
               strokeWidth={2}
             />
             <Radar
-              name={awayTeam.shortName}
+              name={awayTeam.shortName || awayTeam.name.slice(0, 3)}
               dataKey="away"
-              stroke="#3b82f6"
-              fill="#3b82f6"
+              stroke="hsl(var(--chart-2))"
+              fill="hsl(var(--chart-2))"
               fillOpacity={0.3}
               strokeWidth={2}
             />
             <Legend 
               wrapperStyle={{ 
-                fontSize: '12px',
-                paddingTop: '8px'
+                paddingTop: '12px',
+                fontSize: '12px'
               }}
             />
           </RadarChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex justify-center gap-4 text-xs text-muted-foreground mt-1">
-        <span>ATT: 공격력</span>
-        <span>DEF: 수비력</span>
-        <span>ORG: 조직력</span>
-      </div>
-      <div className="flex justify-center gap-4 text-xs text-muted-foreground">
-        <span>FORM: 최근기세</span>
-        <span>GOAL: 득점력</span>
+      
+      {/* 수치 비교 테이블 */}
+      <div className="mt-3 space-y-1.5 text-xs">
+        {data.map((item) => (
+          <div key={item.stat} className="flex items-center justify-between px-2">
+            <span className="w-16 text-right font-medium" style={{ color: 'hsl(var(--chart-1))' }}>
+              {item.home}
+            </span>
+            <span className="flex-1 text-center text-muted-foreground">
+              {item.fullName}
+            </span>
+            <span className="w-16 text-left font-medium" style={{ color: 'hsl(var(--chart-2))' }}>
+              {item.away}
+            </span>
+          </div>
+        ))}
       </div>
     </Card>
   );

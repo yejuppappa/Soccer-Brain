@@ -1,0 +1,614 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model League {
+  id          BigInt   @id @default(autoincrement())
+  apiLeagueId Int      @unique
+  name        String
+  country     String?
+  season      Int
+  enabled     Boolean  @default(true)
+  priority    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fixtures  Fixture[]
+  standings Standing[]
+
+  @@index([enabled, priority])
+}
+
+model Team {
+  id        BigInt   @id @default(autoincrement())
+  apiTeamId Int      @unique
+  name      String
+  shortName String?
+  logoUrl   String?
+  country   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  homeFixtures             Fixture[]                 @relation("HomeTeam")
+  awayFixtures             Fixture[]                 @relation("AwayTeam")
+  stats                    TeamMatchStat[]
+  fixtureLineups           FixtureLineup[]
+  fixtureTeamStatSnapshots FixtureTeamStatSnapshot[]
+  lineupPlayers            FixtureLineupPlayer[]
+  injuries                 FixtureInjury[]
+  predictedLineups         FixturePredictedLineup[]
+  standings                Standing[]
+}
+
+// 리그 순위표
+model Standing {
+  id           BigInt   @id @default(autoincrement())
+  
+  league       League   @relation(fields: [leagueId], references: [id])
+  leagueId     BigInt
+  
+  team         Team     @relation(fields: [teamId], references: [id])
+  teamId       BigInt
+  
+  season       Int
+  rank         Int
+  points       Int      @default(0)
+  played       Int      @default(0)
+  won          Int      @default(0)
+  drawn        Int      @default(0)
+  lost         Int      @default(0)
+  goalsFor     Int      @default(0)
+  goalsAgainst Int      @default(0)
+  goalDiff     Int      @default(0)
+  form         String?  // "WWDLW" 형태
+  
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([leagueId, teamId, season])
+  @@index([teamId, season])
+  @@index([leagueId, season, rank])
+}
+
+model Fixture {
+  id           BigInt @id @default(autoincrement())
+  apiFixtureId Int    @unique
+
+  league   League @relation(fields: [leagueId], references: [id])
+  leagueId BigInt
+  season   Int
+
+  kickoffAt DateTime
+  status    String
+
+  homeTeam   Team   @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  homeTeamId BigInt
+  awayTeam   Team   @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  awayTeamId BigInt
+
+  homeGoals Int?
+  awayGoals Int?
+
+  venueName String?
+  venueCity String?
+
+  venueLat Float?
+  venueLon Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stats      TeamMatchStat[]
+  prediction Prediction?
+
+  weather          FixtureWeather?
+  odds             FixtureOdds?
+  lineups          FixtureLineup[]
+  teamStats        FixtureTeamStatSnapshot[]
+  lineupPlayers    FixtureLineupPlayer[]
+  injuries         FixtureInjury[]
+  predictedLineups FixturePredictedLineup[]
+  featureSnapshot FixtureFeatureSnapshot?
+  bookmakerOdds   BookmakerOdds[]
+
+
+  @@index([leagueId, kickoffAt])
+  @@index([kickoffAt])
+}
+
+model TeamMatchStat {
+  id BigInt @id @default(autoincrement())
+
+  fixture   Fixture @relation(fields: [fixtureId], references: [id])
+  fixtureId BigInt
+
+  team   Team   @relation(fields: [teamId], references: [id])
+  teamId BigInt
+
+  isHome       Boolean
+  goalsFor     Int
+  goalsAgainst Int
+  playedAt     DateTime
+
+  createdAt DateTime @default(now())
+
+  @@unique([fixtureId, teamId])
+  @@index([teamId, playedAt])
+}
+
+model Prediction {
+  id BigInt @id @default(autoincrement())
+
+  fixture   Fixture @relation(fields: [fixtureId], references: [id])
+  fixtureId BigInt  @unique
+
+  modelVersion String
+
+  lambdaHome Decimal
+  lambdaAway Decimal
+
+  pHome Decimal
+  pDraw Decimal
+  pAway Decimal
+
+  pOver25  Decimal
+  pUnder25 Decimal
+
+  evidenceJson    Json?
+  reliabilityJson Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([modelVersion, createdAt])
+}
+
+model FixtureWeather {
+  id        BigInt  @id @default(autoincrement())
+  fixture   Fixture @relation(fields: [fixtureId], references: [id])
+  fixtureId BigInt  @unique
+
+  // UI용 핵심 필드(유지)
+  condition String?
+  tempC     Float?
+  icon      String?
+
+  // ✅ 분석/모델링용 확장 필드(추가)
+  provider        String? // open-meteo/openweather 등 (source와 역할 겹치면 나중에 정리 가능)
+  timezone        String? // API timezone
+  observedAt      DateTime? // kickoffAt에 가장 근접한 날씨 시각(UTC 기준)
+  weatherCode     Int? // Open-Meteo weathercode
+  windKph         Float?
+  windGustKph     Float?
+  windDirDeg      Int?
+  precipitationMm Float?
+  humidityPct     Int?
+  pressureHpa     Float?
+  cloudCoverPct   Int?
+  isDay           Boolean?
+
+  // ✅ 위치(추가) — venue 문자열 지오코딩 or 나중에 venue 좌표
+  lat Float?
+  lon Float?
+
+  // 출처/원본 보존(유지)
+  source    String   @default("unknown")
+  raw       Json?
+  fetchedAt DateTime @default(now())
+
+  @@index([fetchedAt])
+  @@index([observedAt])
+}
+
+model FixtureOdds {
+  id        BigInt  @id @default(autoincrement())
+  fixture   Fixture @relation(fields: [fixtureId], references: [id])
+  fixtureId BigInt  @unique
+
+  // UI용 핵심 1X2
+  home Decimal?
+  draw Decimal?
+  away Decimal?
+
+  // 옵션: 국내/해외 분리하고 싶으면 아래처럼 Json로 확장
+  domestic Json? // {home, draw, away, ...} 또는 배열
+  overseas Json? // {home, draw, away, ...} 또는 배열
+
+  // 출처/원본
+  bookmaker String? // 예: "Bet365"
+  raw       Json?
+  fetchedAt DateTime @default(now())
+
+  // 배당 히스토리 관계
+  history OddsHistory[]
+
+  @@index([fetchedAt])
+}
+
+// 배당 변동 히스토리 (1시간마다 저장)
+model OddsHistory {
+  id        BigInt   @id @default(autoincrement())
+  
+  odds      FixtureOdds @relation(fields: [oddsId], references: [id], onDelete: Cascade)
+  oddsId    BigInt
+  
+  home      Decimal
+  draw      Decimal
+  away      Decimal
+  
+  // 이전 대비 변동
+  homeChange Decimal?  // +0.05, -0.10 등
+  drawChange Decimal?
+  awayChange Decimal?
+  
+  recordedAt DateTime @default(now())
+  
+  @@index([oddsId, recordedAt])
+  @@index([recordedAt])
+}
+
+model FixtureLineup {
+  id        BigInt                @id @default(autoincrement())
+  fixture   Fixture               @relation(fields: [fixtureId], references: [id])
+  fixtureId BigInt
+  players   FixtureLineupPlayer[]
+
+  team   Team   @relation(fields: [teamId], references: [id])
+  teamId BigInt
+
+  formation String?
+  coachName String?
+
+  isConfirmed Boolean @default(false)
+
+  raw       Json?
+  fetchedAt DateTime @default(now())
+
+  source String @default("api-football") // ✅ nullable 제거
+
+  @@unique([fixtureId, teamId, isConfirmed, source])
+  @@index([fixtureId])
+  @@index([teamId])
+}
+
+model FixtureTeamStatSnapshot {
+  id        BigInt  @id @default(autoincrement())
+  fixture   Fixture @relation(fields: [fixtureId], references: [id])
+  fixtureId BigInt
+
+  team   Team   @relation(fields: [teamId], references: [id])
+  teamId BigInt
+
+  isHome Boolean
+
+  // 🔥 추가되는 핵심 스탯 컬럼들
+  shotsTotal      Int?
+  shotsOnTarget   Int?
+  shotsOffTarget  Int?
+  possessionPct   Float?
+  passesTotal     Int?
+  passesAccurate  Int?
+  passAccuracyPct Float?
+  fouls           Int?
+  corners         Int?
+  offsides        Int?
+  yellowCards     Int?
+  redCards        Int?
+  tackles         Int?
+  interceptions   Int?
+  duelsTotal      Int?
+  duelsWon        Int?
+  saves           Int?
+  xg              Float?
+
+  // UI 레이더(ATT/DEF/ORG/FORM/GOAL)는 “원천 stats → 점수화”로 만드는 게 좋아서
+  // 일단 raw를 저장 + 나중에 점수 컬럼 추가 추천
+  raw       Json?
+  fetchedAt DateTime @default(now())
+
+  @@unique([fixtureId, teamId])
+  @@index([teamId])
+  @@index([fixtureId])
+}
+
+model Player {
+  id          BigInt  @id @default(autoincrement())
+  apiPlayerId Int     @unique
+  name        String
+  nationality String?
+  position    String?
+  photoUrl    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lineupRows FixtureLineupPlayer[]
+  injuries   FixtureInjury[]
+}
+
+model FixtureLineupPlayer {
+  id BigInt @id @default(autoincrement())
+
+  fixtureId BigInt
+  teamId    BigInt
+  lineupId  BigInt
+  playerId  BigInt
+
+  isStarter Boolean
+  number    Int?
+  pos       String?
+  grid      String?
+  raw       Json?
+
+  fixture Fixture       @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  team    Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  lineup  FixtureLineup @relation(fields: [lineupId], references: [id], onDelete: Cascade)
+  player  Player        @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([lineupId, playerId]) // ✅ 핵심 변경
+  @@index([fixtureId])
+  @@index([teamId])
+  @@index([playerId])
+  @@index([lineupId])
+}
+
+model FixturePredictedLineup {
+  id BigInt @id @default(autoincrement())
+
+  fixtureId BigInt
+  teamId    BigInt
+
+  predicted Json
+  evidence  Json?
+
+  modelVersion String? // ✅ 추천
+  confidence   Float? // ✅ 추천
+  locked       Boolean @default(false) // ✅ 추천
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fixture Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([fixtureId, teamId])
+  @@index([fixtureId])
+  @@index([teamId])
+}
+
+model FixtureInjury {
+  id BigInt @id @default(autoincrement())
+
+  fixture   Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  fixtureId BigInt
+
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId BigInt
+
+  apiPlayerId Int?
+  playerName  String
+
+  reason String?
+  status String?
+
+  source      String @default("api-football") // ✅ 추가
+  externalKey String // ✅ 추가 (코드에서 만들어 넣기)
+
+  raw       Json?
+  fetchedAt DateTime @default(now())
+
+  player   Player? @relation(fields: [playerId], references: [id])
+  playerId BigInt?
+
+  @@unique([source, externalKey]) // ✅ 변경
+  @@index([fixtureId])
+  @@index([teamId])
+  @@index([apiPlayerId])
+}
+
+model FixtureFeatureSnapshot {
+  id        BigInt  @id @default(autoincrement())
+
+  fixture   Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  fixtureId BigInt  @unique
+
+  featureVersion Int      @default(1)
+  nMatches        Int      @default(5)
+  builtAt         DateTime @default(now())
+
+  // ===== labels / 기본 =====
+  kickoffAt DateTime
+  season    Int
+  leagueId  BigInt
+
+  homeTeamId BigInt
+  awayTeamId BigInt
+
+  homeGoals Int?
+  awayGoals Int?
+
+  // ===== injuries (해당 경기 기준) =====
+  homeInjuryCount Int @default(0)
+  awayInjuryCount Int @default(0)
+
+  // ===== weather (해당 경기 기준) =====
+  tempC           Float?
+  precipitationMm Float?
+  windKph         Float?
+  humidityPct     Int?
+  pressureHpa     Float?
+  cloudCoverPct   Int?
+  isDay           Boolean?
+
+  // ===== recent N matches (팀 기준 평균) =====
+  home_shotsTotal_avg      Float?
+  home_shotsOnTarget_avg   Float?
+  home_possessionPct_avg   Float?
+  home_passesTotal_avg     Float?
+  home_passAccuracyPct_avg Float?
+  home_fouls_avg           Float?
+  home_corners_avg         Float?
+  home_yellowCards_avg     Float?
+  home_redCards_avg        Float?
+  home_xg_avg              Float?
+
+  away_shotsTotal_avg      Float?
+  away_shotsOnTarget_avg   Float?
+  away_possessionPct_avg   Float?
+  away_passesTotal_avg     Float?
+  away_passAccuracyPct_avg Float?
+  away_fouls_avg           Float?
+  away_corners_avg         Float?
+  away_yellowCards_avg     Float?
+  away_redCards_avg        Float?
+  away_xg_avg              Float?
+
+  // ===== recent N matches (득실 평균) =====
+  home_goalsFor_avg     Float?
+  home_goalsAgainst_avg Float?
+  away_goalsFor_avg     Float?
+  away_goalsAgainst_avg Float?
+
+    // ===== V2: 상대 비교(diff) =====
+  shotsTotal_diff          Float?
+  shotsOnTarget_diff       Float?
+  possessionPct_diff       Float?
+  passesTotal_diff         Float?
+  passAccuracyPct_diff     Float?
+  fouls_diff               Float?
+  corners_diff             Float?
+  yellowCards_diff         Float?
+  redCards_diff            Float?
+  xg_diff                  Float?
+  injuryCount_diff         Int?
+  goalsFor_diff            Float?
+  goalsAgainst_diff        Float?
+
+  // ===== V3: 홈/원정 분리 성적 =====
+  // 홈팀의 "홈에서" 성적
+  home_goalsFor_atHome_avg     Float?
+  home_goalsAgainst_atHome_avg Float?
+  home_xg_atHome_avg           Float?
+  home_wins_atHome_pct         Float?  // 홈 승률
+  
+  // 원정팀의 "원정에서" 성적
+  away_goalsFor_atAway_avg     Float?
+  away_goalsAgainst_atAway_avg Float?
+  away_xg_atAway_avg           Float?
+  away_wins_atAway_pct         Float?  // 원정 승률
+  
+  // ===== V3: 폼 (최근 경기 결과) =====
+  home_form_last3   Float?  // 최근 3경기 승점 평균 (승=3, 무=1, 패=0)
+  home_form_last5   Float?  // 최근 5경기 승점 평균
+  away_form_last3   Float?
+  away_form_last5   Float?
+  
+  // ===== V3: 득점력/수비력 차이 =====
+  attack_diff       Float?  // 홈 홈득점 - 원정 원정실점
+  defense_diff      Float?  // 홈 홈실점 - 원정 원정득점
+
+  // ===== V4: 경기 텀/피로 =====
+  home_days_rest        Int?    // 홈팀 마지막 경기 후 휴식일
+  away_days_rest        Int?    // 원정팀 마지막 경기 후 휴식일
+  rest_diff             Int?    // 휴식일 차이 (+ = 홈팀 유리)
+  
+  home_matches_14d      Int?    // 홈팀 최근 14일간 경기 수
+  away_matches_14d      Int?    // 원정팀 최근 14일간 경기 수
+  congestion_diff       Int?    // 경기 밀집도 차이
+  
+  // 유럽대회 피로 (UCL/Europa)
+  home_european_7d      Int?    // 홈팀 최근 7일 내 유럽대회 경기 수
+  away_european_7d      Int?    // 원정팀 최근 7일 내 유럽대회 경기 수
+  european_diff         Int?    // 유럽대회 피로 차이
+
+  // ===== V5: 상대전적 (H2H) =====
+  h2h_total_matches     Int?    // 최근 2년 맞대결 횟수
+  h2h_home_wins         Int?    // 홈팀 승리 횟수
+  h2h_away_wins         Int?    // 원정팀 승리 횟수
+  h2h_draws             Int?    // 무승부 횟수
+  h2h_home_goals_avg    Float?  // 홈팀 평균 득점
+  h2h_away_goals_avg    Float?  // 원정팀 평균 득점
+  h2h_home_win_pct      Float?  // 홈팀 승률
+
+
+  @@index([leagueId, kickoffAt])
+  @@index([featureVersion])
+}
+
+// ============================================================
+// 다중 북메이커 배당 추적 (Multi-Bookmaker Odds Tracking)
+// ============================================================
+
+// 북메이커별 배당 요약 (경기당 N개 — 북메이커별 1개)
+model BookmakerOdds {
+  id         BigInt   @id @default(autoincrement())
+  fixture    Fixture  @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  fixtureId  BigInt
+
+  bookmaker  String   // "Bet365", "Pinnacle", "1xBet", "Unibet" 등
+
+  // 최초 배당 (첫 수집 시점)
+  openHome   Decimal?
+  openDraw   Decimal?
+  openAway   Decimal?
+  openAt     DateTime?  // 최초 수집 시각
+
+  // 현재 배당 (가장 최근 수집)
+  currentHome Decimal?
+  currentDraw Decimal?
+  currentAway Decimal?
+
+  // 마감 배당 (킥오프 직전 마지막 수집 — 경기 종료 후 업데이트)
+  closeHome  Decimal?
+  closeDraw  Decimal?
+  closeAway  Decimal?
+  closeAt    DateTime?
+
+  // 변화량 (current - open)
+  deltaHome  Decimal?  // +0.15 = 배당 상승(확률 하락), -0.20 = 배당 하락(확률 상승)
+  deltaDraw  Decimal?
+  deltaAway  Decimal?
+
+  // 변화 속도 (최근 3시간 평균 변화량/시간)
+  velocityHome Decimal?
+  velocityDraw Decimal?
+  velocityAway Decimal?
+
+  // 수집 횟수
+  snapshotCount Int @default(0)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // 시계열 스냅샷 (1시간마다 기록)
+  snapshots  BookmakerOddsSnapshot[]
+
+  @@unique([fixtureId, bookmaker])
+  @@index([fixtureId])
+  @@index([bookmaker])
+  @@index([updatedAt])
+}
+
+// 배당 스냅샷 — 시계열 (이게 진짜 핵심 데이터)
+model BookmakerOddsSnapshot {
+  id              BigInt          @id @default(autoincrement())
+  bookmakerOdds   BookmakerOdds   @relation(fields: [bookmakerOddsId], references: [id], onDelete: Cascade)
+  bookmakerOddsId BigInt
+
+  home       Decimal
+  draw       Decimal
+  away       Decimal
+
+  // 직전 스냅샷 대비 변동
+  homeChange Decimal?  // +0.05, -0.10 등
+  drawChange Decimal?
+  awayChange Decimal?
+
+  recordedAt DateTime @default(now())
+
+  @@index([bookmakerOddsId, recordedAt])
+  @@index([recordedAt])
+}

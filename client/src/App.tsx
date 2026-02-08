@@ -6,15 +6,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BottomTabNavigation } from "@/components/bottom-tab-navigation";
 import { SportProvider } from "@/contexts/sport-context";
 import { PickProvider } from "@/contexts/pick-context";
-import { SportSelector } from "@/components/sport-selector";
-import { PickFAB } from "@/components/pick-fab";
-import { AnalysisDrawer } from "@/components/analysis-drawer";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
-import Schedule from "@/pages/schedule";
+import Analysis from "@/pages/analysis";
 import MatchAnalysis from "@/pages/match-analysis";
-import League from "@/pages/league";
-import History from "@/pages/history";
+import Live from "@/pages/live";
+import Results from "@/pages/results";
 import My from "@/pages/my";
 import Admin from "@/pages/admin";
 
@@ -22,10 +19,10 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/schedule" component={Schedule} />
+      <Route path="/analysis" component={Analysis} />
       <Route path="/match/:id" component={MatchAnalysis} />
-      <Route path="/league" component={League} />
-      <Route path="/history" component={History} />
+      <Route path="/live" component={Live} />
+      <Route path="/results" component={Results} />
       <Route path="/my" component={My} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
@@ -40,13 +37,10 @@ function App() {
         <SportProvider>
           <PickProvider>
             <div className="flex flex-col min-h-screen">
-              <SportSelector />
-              <div className="flex-1">
+              <div className="flex-1 pb-16">
                 <Router />
               </div>
               <BottomTabNavigation />
-              <PickFAB />
-              <AnalysisDrawer />
             </div>
             <Toaster />
           </PickProvider>

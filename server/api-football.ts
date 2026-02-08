@@ -11,6 +11,44 @@ const apiClient = axios.create({
   },
 });
 
+// ✅ API-Sports quota(남은 요청 수) 헤더 로그 찍기
+apiClient.interceptors.response.use(
+  (res) => {
+    // API-Sports는 응답 헤더에 limit/remaining 값을 넣어주는 경우가 많음
+    const limit =
+      res.headers["x-ratelimit-limit"] ??
+      res.headers["x-requests-limit"] ??
+      res.headers["x-rate-limit-limit"];
+
+    const remaining =
+      res.headers["x-ratelimit-remaining"] ??
+      res.headers["x-requests-remaining"] ??
+      res.headers["x-rate-limit-remaining"];
+
+    const used =
+      res.headers["x-ratelimit-used"] ??
+      res.headers["x-requests-used"] ??
+      res.headers["x-rate-limit-used"];
+
+    // 어떤 엔드포인트를 호출했는지도 같이 찍어주기
+    const url = `${res.config?.baseURL || ""}${res.config?.url || ""}`;
+
+    // 값이 있을 때만 보기 좋게 출력
+    if (limit || remaining || used) {
+      console.log(
+        `[API-Sports Quota] ${url} | limit=${limit ?? "?"} remaining=${remaining ?? "?"} used=${used ?? "?"}`
+      );
+    } else {
+      // 헤더가 안 오는 경우도 있으니, 그 사실을 로그로 남김
+      console.log(`[API-Sports Quota] ${url} | (no quota headers found)`);
+    }
+
+    return res;
+  },
+  (err) => Promise.reject(err)
+);
+
+
 interface ApiFixture {
   fixture: {
     id: number;
@@ -404,6 +442,53 @@ export async function fetchStandingsForSeason(season: number = 2023): Promise<Ma
   return standings;
 }
 
+// 특정 리그의 standings 가져오기 (DB 저장용)
+export interface LeagueStanding {
+  teamId: number;
+  teamName: string;
+  rank: number;
+  points: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDiff: number;
+  form: string | null;
+}
+
+export async function fetchStandingsForLeague(leagueId: number, season: number): Promise<LeagueStanding[]> {
+  try {
+    const response = await apiClient.get("/standings", {
+      params: {
+        league: leagueId,
+        season,
+      },
+    });
+    
+    const standingsData = response.data.response?.[0]?.league?.standings?.[0] || [];
+    
+    return standingsData.map((s: any) => ({
+      teamId: s.team.id,
+      teamName: s.team.name,
+      rank: s.rank,
+      points: s.points ?? 0,
+      played: s.all?.played ?? 0,
+      won: s.all?.win ?? 0,
+      drawn: s.all?.draw ?? 0,
+      lost: s.all?.lose ?? 0,
+      goalsFor: s.all?.goals?.for ?? 0,
+      goalsAgainst: s.all?.goals?.against ?? 0,
+      goalDiff: s.goalsDiff ?? 0,
+      form: s.form || null,
+    }));
+  } catch (error: any) {
+    console.error(`[API-Football] Standings fetch failed for league ${leagueId}:`, error.message);
+    return [];
+  }
+}
+
 // Fetch detailed statistics for a specific fixture
 export interface FixtureStatistics {
   team: { id: number; name: string };
@@ -577,4 +662,191 @@ export async function fetchHistoricalMatchesWithResults(): Promise<HistoricalMat
   
   console.log("[API-Football] Fetched", matches.length, "historical matches with results");
   return matches;
+}
+
+export interface RangeFixtureRow {
+  fixtureId: number;
+  date: string;
+  status: string;
+  venue?: string;
+  homeTeamId: number;
+  awayTeamId: number;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore?: number;
+  awayScore?: number;
+  venueName?: string | null;
+  venueCity?: string | null;
+}
+
+export async function fetchFixturesByDateRange(args: {
+  leagueId: number;
+  season: number;
+  from: string; // "YYYY-MM-DD"
+  to: string;   // "YYYY-MM-DD"
+}): Promise<RangeFixtureRow[]> {
+  const { leagueId, season, from, to } = args;
+
+  const res = await apiClient.get("/fixtures", {
+    params: { league: leagueId, season, from, to },
+  });
+  const fixtures = res.data.response || [];
+  
+
+
+  return fixtures.map((f: any) => ({
+    fixtureId: f.fixture.id,
+    date: f.fixture.date,
+    status: f.fixture.status?.short || "NS",
+  
+    // ✅ venue 정보 추가
+    venue: f.fixture.venue?.name || undefined,
+    venueName: f.fixture.venue?.name ?? null,
+    venueCity: f.fixture.venue?.city ?? null,
+  
+    homeTeamId: f.teams.home.id,
+    awayTeamId: f.teams.away.id,
+    homeTeam: f.teams.home.name,
+    awayTeam: f.teams.away.name,
+    homeScore: f.goals?.home ?? undefined,
+    awayScore: f.goals?.away ?? undefined,
+  }));
+  
+
+}
+export async function fetchFixtureTeamStats(apiFixtureId: number) {
+  return apiClient.get("/fixtures/statistics", {
+    params: { fixture: apiFixtureId },
+  });
+}
+
+/**
+ * 특정 경기의 실제 배당 조회
+ */
+export async function fetchOddsForFixture(fixtureId: number): Promise<{
+  home: number;
+  draw: number;
+  away: number;
+  bookmaker?: string;
+  allBookmakers?: Array<{ bookmaker: string; home: number; draw: number; away: number }>;
+} | null> {
+  try {
+    const res = await apiClient.get("/odds", {
+      params: {
+        fixture: fixtureId,
+      },
+    });
+
+    console.log(`[fetchOddsForFixture] fixture=${fixtureId}, response count=${res.data?.response?.length || 0}`);
+    
+    const data = res.data?.response?.[0];
+    if (!data?.bookmakers?.length) {
+      console.log(`[fetchOddsForFixture] No bookmakers for fixture ${fixtureId}`);
+      return null;
+    }
+
+    // ✅ 모든 북메이커의 Match Winner 배당 파싱
+    const allBookmakers: Array<{ bookmaker: string; home: number; draw: number; away: number }> = [];
+    
+    for (const bm of data.bookmakers) {
+      const matchWinnerBet = bm.bets?.find((b: any) => b.name === "Match Winner");
+      if (!matchWinnerBet) continue;
+
+      const values = matchWinnerBet.values;
+      const homeOdd = values.find((v: any) => v.value === "Home")?.odd;
+      const drawOdd = values.find((v: any) => v.value === "Draw")?.odd;
+      const awayOdd = values.find((v: any) => v.value === "Away")?.odd;
+
+      if (homeOdd && drawOdd && awayOdd) {
+        allBookmakers.push({
+          bookmaker: bm.name || bm.id?.toString() || "Unknown",
+          home: parseFloat(homeOdd),
+          draw: parseFloat(drawOdd),
+          away: parseFloat(awayOdd),
+        });
+      }
+    }
+
+    if (allBookmakers.length === 0) {
+      console.log(`[fetchOddsForFixture] No valid Match Winner odds found`);
+      return null;
+    }
+
+    console.log(`[fetchOddsForFixture] Parsed ${allBookmakers.length} bookmakers: ${allBookmakers.map(b => b.bookmaker).join(', ')}`);
+
+    // 대표 북메이커 선택 (Bet365 > Pinnacle > 첫 번째)
+    const representative = 
+      allBookmakers.find(b => b.bookmaker.toLowerCase().includes('bet365')) ||
+      allBookmakers.find(b => b.bookmaker.toLowerCase().includes('pinnacle')) ||
+      allBookmakers[0];
+
+    return {
+      home: representative.home,
+      draw: representative.draw,
+      away: representative.away,
+      bookmaker: representative.bookmaker,
+      allBookmakers,
+    };
+  } catch (err) {
+    console.error(`[fetchOddsForFixture] Error for fixture ${fixtureId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * 날짜 범위의 모든 경기 배당 일괄 조회
+ */
+export async function fetchOddsByDate(date: string): Promise<Array<{
+  fixtureId: number;
+  home: number;
+  draw: number;
+  away: number;
+}>> {
+  try {
+    const res = await apiClient.get("/odds", {
+      params: {
+        date: date,  // YYYY-MM-DD
+        bookmaker: 8,  // Bet365
+      },
+    });
+
+    const results: Array<{
+      fixtureId: number;
+      home: number;
+      draw: number;
+      away: number;
+    }> = [];
+
+    for (const item of res.data?.response || []) {
+      const fixtureId = item.fixture?.id;
+      if (!fixtureId) continue;
+
+      const bookmaker = item.bookmakers?.[0];
+      if (!bookmaker) continue;
+
+      const matchWinnerBet = bookmaker.bets?.find(
+        (b: any) => b.name === "Match Winner"
+      );
+      if (!matchWinnerBet) continue;
+
+      const values = matchWinnerBet.values;
+      const homeOdd = values.find((v: any) => v.value === "Home")?.odd;
+      const drawOdd = values.find((v: any) => v.value === "Draw")?.odd;
+      const awayOdd = values.find((v: any) => v.value === "Away")?.odd;
+
+      if (homeOdd && drawOdd && awayOdd) {
+        results.push({
+          fixtureId,
+          home: parseFloat(homeOdd),
+          draw: parseFloat(drawOdd),
+          away: parseFloat(awayOdd),
+        });
+      }
+    }
+
+    return results;
+  } catch (err) {
+    console.error(`[fetchOddsByDate] Error for date ${date}:`, err);
+    return [];
+  }
 }

@@ -9,7 +9,7 @@ import { transformRawToStandardized, isAlreadyCollected } from "./data-transform
 const TRAINING_SET_PATH = path.join(process.cwd(), "training_set.json");
 const MINING_STATE_PATH = path.join(process.cwd(), "mining_state.json");
 const SAFE_MODE_THRESHOLD = 5;
-const DAILY_COLLECTION_LIMIT = 80;
+const DAILY_COLLECTION_LIMIT = 70000;
 
 let miningState: MiningState = {
   lastRunTime: null,
@@ -101,25 +101,60 @@ function addLogEntry(
 }
 
 async function checkRateLimitSafe(): Promise<{ safe: boolean; remaining: number }> {
+  const apiKey = process.env.API_SPORTS_KEY || "";
+  if (!apiKey) return { safe: false, remaining: 0 };
+
+  // ✅ remaining이 이 값보다 작으면 안전모드
+  // (너가 원하는 값으로 조절 가능)
+  const THRESHOLD = SAFE_MODE_THRESHOLD;
+
   try {
-    const response = await axios.get("https://v3.football.api-sports.io/status", {
-      headers: {
-        "x-apisports-key": process.env.API_SPORTS_KEY || "",
-      },
+    // 1) 먼저 /status로 시도
+    const statusRes = await axios.get("https://v3.football.api-sports.io/status", {
+      headers: { "x-apisports-key": apiKey },
+      timeout: 20000,
     });
-    
-    const remaining = response.data?.response?.requests?.remaining || 0;
-    console.log(`[Mining] API quota remaining: ${remaining}`);
-    
-    return {
-      safe: remaining >= SAFE_MODE_THRESHOLD,
-      remaining,
-    };
-  } catch (error) {
-    console.error("[Mining] Rate limit check failed:", error);
+
+    const statusRemaining = statusRes.data?.response?.requests?.remaining;
+    if (Number.isFinite(Number(statusRemaining))) {
+      const remaining = Number(statusRemaining);
+      console.log(`[Mining] API quota remaining (status): ${remaining}`);
+      return { safe: remaining >= THRESHOLD, remaining };
+    }
+
+    // 2) /status에서 remaining을 못 얻으면: 실제 엔드포인트 1번 호출해서 헤더로 확인
+    const r = await axios.get("https://v3.football.api-sports.io/fixtures", {
+      headers: { "x-apisports-key": apiKey },
+      params: { league: 39, season: 2023, from: "2024-03-16", to: "2024-03-16" },
+      timeout: 20000,
+    });
+
+    const h = r.headers ?? {};
+
+    const remainingRaw =
+      h["x-ratelimit-remaining"] ??
+      h["x-rate-limit-remaining"] ??
+      h["ratelimit-remaining"] ??
+      h["x-requests-remaining"] ??
+      h["requests-remaining"];
+
+    const remaining = Number(remainingRaw);
+
+    if (!Number.isFinite(remaining)) {
+      // ✅ 헤더도 못 읽으면 "0"으로 처리하면 지금처럼 오작동하니까
+      // 개발중엔 그냥 safe로 두자
+      console.log("[Mining] RateLimit header missing; skipping safe-mode check");
+      return { safe: true, remaining: 9999 };
+    }
+
+    console.log(`[Mining] API quota remaining (header): ${remaining}`);
+    return { safe: remaining >= THRESHOLD, remaining };
+  } catch (error: any) {
+    console.error("[Mining] Rate limit check failed:", error?.message || error);
     return { safe: false, remaining: 0 };
   }
 }
+
 
 function getDateRangeForCollection(): { from: string; to: string } {
   const today = new Date();
@@ -275,10 +310,10 @@ export function initMiningScheduler(): void {
     timezone: "UTC"
   });
 
-  console.log("[Mining] Running initial mining check on server start...");
-  setTimeout(() => {
-    runMiningTask();
-  }, 5000);
+  //console.log("[Mining] Running initial mining check on server start...");
+  //setTimeout(() => {
+  //  runMiningTask();
+  //}, 5000);
 }
 
 export async function triggerManualMining(): Promise<MiningState> {

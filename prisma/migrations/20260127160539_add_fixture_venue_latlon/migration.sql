@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Fixture" ADD COLUMN     "venueLat" DOUBLE PRECISION,
+ADD COLUMN     "venueLon" DOUBLE PRECISION;

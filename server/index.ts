@@ -1,8 +1,9 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { initMiningScheduler } from "./mining-scheduler";
+import { initUnifiedScheduler } from "./unified-scheduler";
 
 const app = express();
 const httpServer = createServer(app);
@@ -91,17 +92,16 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
+  // 수정된 부분: 복잡한 설정({ host, reusePort })을 다 빼고 'port'만 넣습니다.
+  httpServer.listen(port, () => {
       log(`serving on port ${port}`);
       
-      // Initialize the mining scheduler after server starts
-      initMiningScheduler();
+      // 스케줄러: DISABLE_SCHEDULER=true면 비활성화 (개발 중 편의)
+      if (process.env.DISABLE_SCHEDULER === 'true') {
+        log(`[Scheduler] Disabled (DISABLE_SCHEDULER=true)`);
+      } else {
+        initUnifiedScheduler();
+      }
     },
   );
 })();
