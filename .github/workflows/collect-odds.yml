@@ -1,0 +1,44 @@
+# ⚽ Soccer Brain - 배당 흐름 추적 (10분 간격)
+# 핵심: 북메이커 배당 스냅샷을 10분마다 수집하여 배당 흐름 분석
+
+name: 💰 10min Odds Tracking
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  
+  workflow_dispatch:
+
+# 동시 실행 방지: 이전 실행이 안 끝났으면 대기
+concurrency:
+  group: odds-tracking
+  cancel-in-progress: false
+
+jobs:
+  odds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: 📥 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 🟢 Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: 📦 의존성 설치
+        run: npm install --ignore-scripts
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+
+      - name: 🔧 Prisma 생성
+        run: npx prisma generate
+
+      - name: 💰 배당 수집
+        run: npx tsx scripts/collect.ts odds
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}

@@ -1,27 +1,27 @@
-# ⚽ Soccer Brain - 시간별 데이터 수집
-# 배당 흐름 추적 + 순위/결과/라인업 동기화
-#
-# GitHub Actions가 클라우드에서 실행 → PC 꺼져도 데이터 수집 계속
+# ⚽ Soccer Brain - 순위/결과/라인업 수집 (1시간 간격)
+# 배당은 별도 워크플로우(collect-odds.yml)에서 10분마다 수집
 
-name: ⚽ 10min Data Collection
+name: 📊 Hourly Data Collection
 
 on:
   schedule:
-    # 10분마다 실행 (UTC)
-    - cron: "*/10 * * * *"
+    - cron: "0 * * * *"
   
-  # 수동 실행 (테스트/디버그용)
   workflow_dispatch:
     inputs:
       tasks:
         description: "실행할 태스크 (쉼표 구분)"
         required: false
-        default: "standings,results,odds,lineups"
+        default: "standings,results,lineups"
+
+concurrency:
+  group: hourly-collection
+  cancel-in-progress: false
 
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
 
     steps:
       - name: 📥 코드 체크아웃
@@ -41,10 +41,9 @@ jobs:
       - name: 🔧 Prisma 생성
         run: npx prisma generate
 
-      - name: 🤖 데이터 수집
+      - name: 📊 데이터 수집
         run: |
-          TASKS="${{ github.event.inputs.tasks || 'standings results odds lineups' }}"
-          # 쉼표를 공백으로
+          TASKS="${{ github.event.inputs.tasks || 'standings results lineups' }}"
           TASKS=$(echo "$TASKS" | tr ',' ' ')
           echo "📋 실행: $TASKS"
           npx tsx scripts/collect.ts $TASKS
