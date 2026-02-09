@@ -28,7 +28,7 @@ on:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 50
 
     steps:
       - name: 📥 코드 체크아웃

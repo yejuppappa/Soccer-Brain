@@ -1,5 +1,5 @@
 # ⚽ Soccer Brain - 순위/결과/라인업 수집 (1시간 간격)
-# 배당은 별도 워크플로우(collect-odds.yml)에서 10분마다 수집
+# 배당은 별도 워크플로우(collect-odds.yml)에서 20분마다 수집
 
 name: 📊 Hourly Data Collection
 
@@ -21,7 +21,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 50
 
     steps:
       - name: 📥 코드 체크아웃
