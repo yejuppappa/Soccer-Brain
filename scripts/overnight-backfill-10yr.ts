@@ -1,16 +1,16 @@
 /**
  * ╔═══════════════════════════════════════════════════════════╗
- * ║  Soccer-Brain 야간 전자동 백필러 (Overnight Backfiller)  ║
+ * ║  Soccer-Brain 10년 확장 백필러 (2015~2019)               ║
  * ╠═══════════════════════════════════════════════════════════╣
  * ║                                                           ║
- * ║  서버 ON/OFF와 무관. 터미널에서 실행 후 잠자면 됨.       ║
+ * ║  1차 백필(2020~2025) 완료 후 실행.                       ║
+ * ║  과거 5년치를 추가하여 총 10년 데이터 확보.              ║
  * ║                                                           ║
- * ║  실행: npx tsx scripts/overnight-backfill.ts              ║
+ * ║  실행: npx tsx scripts/overnight-backfill-10yr.ts         ║
  * ║                                                           ║
- * ║  하는 일 (순서대로):                                      ║
- * ║  [Phase 1] 경기 일정 채우기 (리그×시즌 빠진 것)          ║
- * ║  [Phase 2] 경기 스탯 채우기 (FT인데 스탯 없는 것)        ║
- * ║  [Phase 3] 피처 스냅샷 빌드 (스탯 있는데 피처 없는 것)   ║
+ * ║  [Phase 1] 경기 일정 채우기 (2015~2019)                  ║
+ * ║  [Phase 2] 경기 스탯 채우기                               ║
+ * ║  [Phase 3] 피처 스냅샷 빌드                               ║
  * ║                                                           ║
  * ║  70,000콜 한도 자동 관리. 한도 근접 시 자동 중단.        ║
  * ║  중단 후 다시 실행하면 이어서 진행. (이미 있는 건 스킵)  ║
@@ -31,15 +31,17 @@ const API_BASE = "https://v3.football.api-sports.io";
 const API_KEY = process.env.API_SPORTS_KEY || "";
 const DELAY_MS = 350;          // API 호출 간격 (초당 ~3콜)
 const MAX_API_CALLS = 70000;   // 75,000 중 5,000은 안전 여유분
-const SEASONS = [2020, 2021, 2022, 2023, 2024, 2025];
+const SEASONS = [2015, 2016, 2017, 2018, 2019];
 const CALENDAR_YEAR_LEAGUES = new Set([292, 293, 98, 99, 253, 71, 128, 169, 307, 333, 17, 18, 294]);
 
 // 리그별 최초 시즌 (이전 시즌은 API 콜 낭비 방지)
 const LEAGUE_START_SEASON: Record<number, number> = {
-  848: 2021,  // Europa Conference League: 2021-22부터
-  531: 2017,  // UEFA Super Cup (API 데이터)
+  848: 2021,  // Europa Conference League: 2021-22부터 (전부 스킵)
+  531: 2017,  // UEFA Super Cup
   18:  2017,  // AFC Cup
   293: 2017,  // K League 2
+  294: 2016,  // Korean FA Cup
+  17:  2016,  // AFC Champions League (API 데이터)
 };
 
 // ============================================================
@@ -719,7 +721,7 @@ async function main() {
 
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║          🌙 Soccer-Brain 야간 전자동 백필러              ║
+║          🌙 Soccer-Brain 10년 확장 백필러 (2015~2019)     ║
 ║                                                           ║
 ║  시작: ${new Date().toLocaleString("ko-KR")}                      ║
 ║  API 한도: ${MAX_API_CALLS.toLocaleString()}콜 (안전 여유 5,000)              ║
@@ -747,7 +749,7 @@ async function main() {
 
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║          📊 야간 백필 최종 리포트                         ║
+║          📊 10년 확장 백필 최종 리포트                     ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  소요 시간:       ${elapsed.padStart(8)}분                           ║
 ║  API 콜 사용:     ${String(apiCallsUsed).padStart(8)}콜                          ║
