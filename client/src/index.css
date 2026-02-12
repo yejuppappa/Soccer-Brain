@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './styles/utilities.css';
 /* LIGHT MODE - Toss App Style */
 :root {
   --button-outline: rgba(0,0,0, .10);

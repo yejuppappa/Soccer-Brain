@@ -3,30 +3,24 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { BottomTabNavigation } from "@/components/bottom-tab-navigation";
-import { SportProvider } from "@/contexts/sport-context";
-import { PickProvider } from "@/contexts/pick-context";
+import { BottomNav } from "@/components/bottom-nav";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
-import Analysis from "@/pages/analysis";
-import MatchAnalysis from "@/pages/match-analysis";
-import Live from "@/pages/live";
-import Results from "@/pages/results";
-import My from "@/pages/my";
+import MatchDetail from "@/pages/match-detail";
+import Standings from "@/pages/standings";
+import Settings from "@/pages/settings";
 import Admin from "@/pages/admin";
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/analysis" component={Analysis} />
-      <Route path="/match/:id" component={MatchAnalysis} />
-      <Route path="/live" component={Live} />
-      <Route path="/results" component={Results} />
-      <Route path="/my" component={My} />
-      <Route path="/admin" component={Admin} />
-      <Route component={NotFound} />
-    </Switch>
+<Switch>
+  <Route path="/" component={Home} />
+  <Route path="/match/:id" component={MatchDetail} />
+  <Route path="/standings" component={Standings} />
+  <Route path="/settings" component={Settings} />
+  <Route path="/admin" component={Admin} />     {/* ← 이거 추가 */}
+  <Route component={NotFound} />
+</Switch>
   );
 }
 
@@ -34,17 +28,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <SportProvider>
-          <PickProvider>
-            <div className="flex flex-col min-h-screen">
-              <div className="flex-1 pb-16">
-                <Router />
-              </div>
-              <BottomTabNavigation />
-            </div>
-            <Toaster />
-          </PickProvider>
-        </SportProvider>
+        <div className="flex flex-col min-h-screen bg-[#0A0E17] text-[#F1F5F9]">
+          <div className="flex-1 pb-16">
+            <Router />
+          </div>
+          <BottomNav />
+        </div>
+        <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
   );

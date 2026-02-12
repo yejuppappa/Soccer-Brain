@@ -73,32 +73,6 @@ export interface WinDrawLossProbability {
   awayWin: number;
 }
 
-export interface AnalysisCore {
-  name: string;
-  description: string;
-  baseValue: number;
-  adjustedValue: number;
-  isActive: boolean;
-}
-
-export interface MatchAnalysis {
-  matchId: string;
-  homeTeam: Team;
-  awayTeam: Team;
-  weather: Weather;
-  odds: Odds;
-  lineup?: LineupInfo;
-  cores: {
-    core1: AnalysisCore;
-    core2Home: AnalysisCore;
-    core2Away: AnalysisCore;
-    core3Home: AnalysisCore;
-    core3Away: AnalysisCore;
-  };
-  baseProbability: WinDrawLossProbability;
-  adjustedProbability: WinDrawLossProbability;
-}
-
 // API Response types
 export interface MatchListResponse {
   matches: Match[];
@@ -106,87 +80,9 @@ export interface MatchListResponse {
   apiError?: string | null;
 }
 
-export interface MatchAnalysisResponse {
-  analysis: MatchAnalysis;
-}
-
-// Simulation State
-export interface SimulationState {
-  isRaining: boolean;
-  homeTeamFatigued: boolean;
-  homeKeyPlayerInjured: boolean;
-  awayTeamFatigued: boolean;
-  awayKeyPlayerInjured: boolean;
-}
-
-// Backtesting Types
+// Legacy types (kept for admin.tsx compatibility — will be removed when admin page is cleaned)
 export type MatchResult = 'home_win' | 'draw' | 'away_win';
 export type VariableType = 'fatigue' | 'injury' | 'weather' | 'form' | 'home_advantage';
-
-export interface HistoricalMatch {
-  id: string;
-  matchTitle: string;
-  homeTeam: string;
-  awayTeam: string;
-  date: string;
-  aiPrediction: number; // AI predicted home win probability
-  predictedResult: MatchResult;
-  actualResult: MatchResult;
-  wasCorrect: boolean;
-  errorMargin: number; // difference between prediction and actual
-  primaryCause: VariableType;
-  causeDescription: string;
-}
-
-export interface TuningWeight {
-  variable: VariableType;
-  originalWeight: number;
-  adjustedWeight: number;
-  adjustmentReason: string;
-}
-
-export interface BacktestResult {
-  totalMatches: number;
-  correctPredictions: number;
-  accuracy: number;
-  significantErrors: number; // predictions off by 30%+
-  tuningWeights: TuningWeight[];
-  insights: string[];
-  completedAt: string;
-}
-
-export interface TrainingMatchTeam {
-  name: string;
-  ranking: number;
-  form: string;
-}
-
-export interface TrainingMatch {
-  id: number;
-  homeTeam: TrainingMatchTeam;
-  awayTeam: TrainingMatchTeam;
-  homeScore: number;
-  awayScore: number;
-  date: string;
-  venue?: string;
-  actualResult: MatchResult;
-}
-
-export interface TrainingMatchDetail {
-  id: string;
-  matchTitle: string;
-  homeTeam: string;
-  awayTeam: string;
-  homeScore: number;
-  awayScore: number;
-  date: string;
-  actualResult: MatchResult;
-  predictedResult: MatchResult;
-  aiPrediction: number;
-  wasCorrect: boolean;
-  errorMargin: number;
-  primaryCause: VariableType;
-}
 
 export interface TrainingResult {
   totalMatches: number;
@@ -194,9 +90,9 @@ export interface TrainingResult {
   initialAccuracy: number;
   adjustedAccuracy: number;
   significantErrors: number;
-  tuningWeights: TuningWeight[];
+  tuningWeights: any[];
   insights: string[];
-  matchDetails: TrainingMatchDetail[];
+  matchDetails: any[];
   completedAt: string;
 }
 
@@ -227,82 +123,8 @@ export interface UserVote {
   votedAt: string;
 }
 
-// Prediction Record for tracking accuracy
-export interface PredictionRecord {
-  id: string;
-  matchId: string;
-  matchTitle: string;
-  date: string;
-  aiPrediction: VoteChoice;
-  userPrediction?: VoteChoice;
-  actualResult?: VoteChoice;
-  aiCorrect?: boolean;
-  userCorrect?: boolean;
-}
-
-// Daily Accuracy Stats for chart
-export interface DailyAccuracy {
-  date: string;
-  totalMatches: number;
-  aiCorrect: number;
-  userCorrect: number;
-}
-
-// User Stats for My page comparison
-export interface UserStats {
-  totalVotes: number;
-  userTotal: number;
-  userCorrect: number;
-  userAccuracy: number;
-  aiTotal: number;
-  aiCorrect: number;
-  aiAccuracy: number;
-}
-
-// ============================================
-// Standardized Training Data Format
-// ============================================
-// This is our vendor-agnostic data format.
-// When switching data providers (API), only update the transformer - not the training set.
-
-export type StandardizedResult = 'W' | 'D' | 'L'; // Home team perspective
-
-export interface StandardizedTeamStats {
-  attack: number;     // 0-100, offensive capability
-  defense: number;    // 0-100, defensive capability  
-  organization: number; // 0-100, team coordination/structure
-  form: number;       // 0-100, recent performance
-  ranking: number;    // League position (1-20)
-}
-
-export interface StandardizedMatch {
-  id: string;                    // Unique identifier (e.g., "std-{fixtureId}")
-  match_date: string;            // ISO date string
-  home_team: string;             // Team name
-  away_team: string;             // Team name
-  home_score: number;            // Final score
-  away_score: number;            // Final score
-  home_stats: StandardizedTeamStats;
-  away_stats: StandardizedTeamStats;
-  result: StandardizedResult;    // From home team perspective: W=home win, D=draw, L=home loss
-  venue?: string;                // Stadium name
-  source: string;                // Data source identifier (e.g., "api-football-v3")
-  source_id: string;             // Original ID from source (e.g., fixture ID)
-  collected_at: string;          // When this data was collected
-  quality: 'basic' | 'enriched'; // Data quality level
-}
-
-// Auto Mining Scheduler Types
+// Legacy types (kept for admin.tsx compatibility)
 export type MiningStatus = 'success' | 'stopped' | 'error' | 'safe_mode';
-
-export interface MiningLogEntry {
-  timestamp: string;
-  status: MiningStatus;
-  message: string;
-  matchesCollected: number;
-  duplicatesSkipped: number;
-  quotaRemaining: number;
-}
 
 export interface MiningState {
   lastRunTime: string | null;
@@ -310,5 +132,5 @@ export interface MiningState {
   lastMessage: string | null;
   totalCollectedToday: number;
   isRunning: boolean;
-  logs: MiningLogEntry[];
+  logs: any[];
 }

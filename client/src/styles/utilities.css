@@ -1,0 +1,6 @@
+/* no-scrollbar: 스크롤바 숨김 (가로 스크롤 영역용) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* safe-area: 하단 안전 영역 */
+.safe-area-pb { padding-bottom: env(safe-area-inset-bottom, 0); }

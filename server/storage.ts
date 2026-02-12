@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type Match, type Team, type MatchAnalysis, type AnalysisCore, type Weather, type WeatherCondition, type WinDrawLossProbability, type Odds, type OddsTrend, type HistoricalMatch, type BacktestResult, type TuningWeight, type VariableType, type MatchResult, type TrainingResult, type LineupInfo, type UserVote, type VoteChoice, type PredictionRecord, type DailyAccuracy, type UserStats } from "@shared/schema";
+import { type User, type InsertUser, type Match, type Team, type Weather, type WeatherCondition, type WinDrawLossProbability, type Odds, type OddsTrend, type UserVote, type VoteChoice } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { fetchNextFixtures, isApiConfigured, type HistoricalMatchWithResult } from "./api-football";
+import { fetchNextFixtures, isApiConfigured } from "./api-football";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -8,26 +8,18 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   getMatches(): Promise<Match[]>;
   getMatchById(id: string): Promise<Match | undefined>;
-  getMatchAnalysis(matchId: string): Promise<MatchAnalysis | undefined>;
-  getHistoricalMatches(): Promise<HistoricalMatch[]>;
-  runBacktest(): Promise<BacktestResult>;
   refreshMatchesFromApi(): Promise<void>;
-  runTrainingWithRealData(matches: HistoricalMatchWithResult[]): Promise<TrainingResult>;
-  // Vote & Prediction tracking
   submitVote(matchId: string, choice: VoteChoice): Promise<UserVote>;
   getVoteForMatch(matchId: string): Promise<UserVote | undefined>;
   getAllVotes(): Promise<UserVote[]>;
-  getPredictionRecords(): Promise<PredictionRecord[]>;
-  getDailyAccuracyData(): Promise<DailyAccuracy[]>;
-  getUserStats(): Promise<UserStats>;
 }
 
 function generateWeather(): Weather {
   const conditions: WeatherCondition[] = ['sunny', 'cloudy', 'rainy', 'snowy'];
-  
+
   const condition = conditions[Math.floor(Math.random() * conditions.length)];
   let temperature: number;
-  
+
   switch (condition) {
     case 'sunny':
       temperature = Math.floor(Math.random() * 15) + 15;
@@ -42,7 +34,7 @@ function generateWeather(): Weather {
       temperature = Math.floor(Math.random() * 5) - 2;
       break;
   }
-  
+
   return {
     condition,
     temperature,
@@ -54,15 +46,15 @@ function calculateBaseProbability(homeTeam: Team, awayTeam: Team): WinDrawLossPr
   const rankDiff = awayTeam.leagueRank - homeTeam.leagueRank;
   const homeRecentWins = homeTeam.recentResults.filter(r => r === 'W').length;
   const awayRecentWins = awayTeam.recentResults.filter(r => r === 'W').length;
-  
+
   let homeWin = 35 + (rankDiff * 2) + (homeRecentWins * 2) - (awayRecentWins * 1);
   let awayWin = 35 - (rankDiff * 2) + (awayRecentWins * 2) - (homeRecentWins * 1);
-  
+
   homeWin = Math.min(Math.max(homeWin, 15), 60);
   awayWin = Math.min(Math.max(awayWin, 15), 60);
-  
+
   const draw = 100 - homeWin - awayWin;
-  
+
   return { homeWin, draw, awayWin };
 }
 
@@ -73,15 +65,15 @@ function generateRandomTrend(): OddsTrend {
 
 function calculateOddsFromProbability(probability: WinDrawLossProbability): Odds {
   const margin = 1.08;
-  
+
   const overseasHome = Math.round((1 / (probability.homeWin / 100) * margin) * 100) / 100;
   const overseasDraw = Math.round((1 / (probability.draw / 100) * margin) * 100) / 100;
   const overseasAway = Math.round((1 / (probability.awayWin / 100) * margin) * 100) / 100;
-  
+
   const domesticHome = Math.round((overseasHome - 0.1 - Math.random() * 0.1) * 100) / 100;
   const domesticDraw = Math.round((overseasDraw - 0.1 - Math.random() * 0.1) * 100) / 100;
   const domesticAway = Math.round((overseasAway - 0.1 - Math.random() * 0.1) * 100) / 100;
-  
+
   return {
     domestic: [domesticHome, domesticDraw, domesticAway],
     overseas: [overseasHome, overseasDraw, overseasAway],
@@ -199,9 +191,10 @@ function createMatch(id: string, homeTeam: Team, awayTeam: Team, hours: number, 
   const probability = calculateBaseProbability(homeTeam, awayTeam);
   const matchDate = new Date(today);
   matchDate.setHours(hours, minutes, 0, 0);
-  
+
   return {
     id,
+    sportType: 'soccer' as const,
     homeTeam,
     awayTeam,
     matchTime: matchDate.toISOString(),
@@ -219,111 +212,19 @@ const mockMatches: Match[] = [
   createMatch("match-5", mockTeams[8], mockTeams[9], 22, 30, "아멕스 스타디움"),
 ];
 
-function calculateCore1(homeTeam: Team, awayTeam: Team): AnalysisCore {
-  const rankDiff = awayTeam.leagueRank - homeTeam.leagueRank;
-  const homeRecentWins = homeTeam.recentResults.filter(r => r === 'W').length;
-  const awayRecentWins = awayTeam.recentResults.filter(r => r === 'W').length;
-  const baseValue = Math.round((rankDiff * 2) + (homeRecentWins - awayRecentWins) * 2);
-  
-  return {
-    name: "기초 체력",
-    description: `홈 ${homeTeam.leagueRank}위(최근 ${homeRecentWins}승) vs 원정 ${awayTeam.leagueRank}위(최근 ${awayRecentWins}승)`,
-    baseValue,
-    adjustedValue: baseValue,
-    isActive: true,
-  };
-}
-
-function createCore2(team: Team, isHome: boolean): AnalysisCore {
-  const teamType = isHome ? "홈팀" : "원정팀";
-  return {
-    name: `${teamType} 피로도`,
-    description: `${team.name} 휴식 ${team.lastMatchDaysAgo}일`,
-    baseValue: 0,
-    adjustedValue: 0,
-    isActive: false,
-  };
-}
-
-function createCore3(team: Team, isHome: boolean): AnalysisCore {
-  const teamType = isHome ? "홈팀" : "원정팀";
-  return {
-    name: `${teamType} 핵심 선수`,
-    description: `${team.topScorer.name} (${team.topScorer.goals}골)`,
-    baseValue: 0,
-    adjustedValue: 0,
-    isActive: false,
-  };
-}
-
-// Mock historical data for 2023-2024 season
-const mockHistoricalMatches: HistoricalMatch[] = [
-  { id: "hist-1", matchTitle: "맨시티 vs 아스날", homeTeam: "맨시티", awayTeam: "아스날", date: "2024-03-31", aiPrediction: 65, predictedResult: "home_win", actualResult: "draw", wasCorrect: false, errorMargin: 35, primaryCause: "fatigue", causeDescription: "원정 피로도 과소평가" },
-  { id: "hist-2", matchTitle: "리버풀 vs 첼시", homeTeam: "리버풀", awayTeam: "첼시", date: "2024-03-24", aiPrediction: 58, predictedResult: "home_win", actualResult: "home_win", wasCorrect: true, errorMargin: 8, primaryCause: "form", causeDescription: "최근 폼 정확히 반영" },
-  { id: "hist-3", matchTitle: "토트넘 vs 맨유", homeTeam: "토트넘", awayTeam: "맨유", date: "2024-03-17", aiPrediction: 52, predictedResult: "home_win", actualResult: "away_win", wasCorrect: false, errorMargin: 48, primaryCause: "injury", causeDescription: "핵심 선수 부상 영향 과소평가" },
-  { id: "hist-4", matchTitle: "아스날 vs 리버풀", homeTeam: "아스날", awayTeam: "리버풀", date: "2024-03-10", aiPrediction: 45, predictedResult: "draw", actualResult: "draw", wasCorrect: true, errorMargin: 5, primaryCause: "home_advantage", causeDescription: "홈 어드밴티지 정확히 반영" },
-  { id: "hist-5", matchTitle: "첼시 vs 뉴캐슬", homeTeam: "첼시", awayTeam: "뉴캐슬", date: "2024-03-03", aiPrediction: 55, predictedResult: "home_win", actualResult: "home_win", wasCorrect: true, errorMargin: 12, primaryCause: "form", causeDescription: "팀 폼 분석 정확" },
-  { id: "hist-6", matchTitle: "맨유 vs 맨시티", homeTeam: "맨유", awayTeam: "맨시티", date: "2024-02-25", aiPrediction: 35, predictedResult: "away_win", actualResult: "away_win", wasCorrect: true, errorMargin: 10, primaryCause: "form", causeDescription: "상대 전력 분석 정확" },
-  { id: "hist-7", matchTitle: "뉴캐슬 vs 토트넘", homeTeam: "뉴캐슬", awayTeam: "토트넘", date: "2024-02-18", aiPrediction: 48, predictedResult: "draw", actualResult: "home_win", wasCorrect: false, errorMargin: 32, primaryCause: "home_advantage", causeDescription: "홈 어드밴티지 과소평가" },
-  { id: "hist-8", matchTitle: "아스날 vs 첼시", homeTeam: "아스날", awayTeam: "첼시", date: "2024-02-11", aiPrediction: 62, predictedResult: "home_win", actualResult: "home_win", wasCorrect: true, errorMargin: 8, primaryCause: "form", causeDescription: "팀 폼 반영 정확" },
-  { id: "hist-9", matchTitle: "리버풀 vs 맨시티", homeTeam: "리버풀", awayTeam: "맨시티", date: "2024-02-04", aiPrediction: 42, predictedResult: "draw", actualResult: "away_win", wasCorrect: false, errorMargin: 38, primaryCause: "fatigue", causeDescription: "경기 일정 밀도 과소평가" },
-  { id: "hist-10", matchTitle: "맨시티 vs 토트넘", homeTeam: "맨시티", awayTeam: "토트넘", date: "2024-01-28", aiPrediction: 68, predictedResult: "home_win", actualResult: "home_win", wasCorrect: true, errorMargin: 5, primaryCause: "form", causeDescription: "최근 5경기 분석 정확" },
-  { id: "hist-11", matchTitle: "첼시 vs 리버풀", homeTeam: "첼시", awayTeam: "리버풀", date: "2024-01-21", aiPrediction: 38, predictedResult: "away_win", actualResult: "draw", wasCorrect: false, errorMargin: 28, primaryCause: "weather", causeDescription: "우천 영향 과소평가" },
-  { id: "hist-12", matchTitle: "토트넘 vs 아스날", homeTeam: "토트넘", awayTeam: "아스날", date: "2024-01-14", aiPrediction: 40, predictedResult: "draw", actualResult: "away_win", wasCorrect: false, errorMargin: 35, primaryCause: "injury", causeDescription: "손흥민 부상 영향 과대평가" },
-  { id: "hist-13", matchTitle: "맨유 vs 리버풀", homeTeam: "맨유", awayTeam: "리버풀", date: "2024-01-07", aiPrediction: 32, predictedResult: "away_win", actualResult: "away_win", wasCorrect: true, errorMargin: 12, primaryCause: "form", causeDescription: "원정팀 폼 정확 반영" },
-  { id: "hist-14", matchTitle: "뉴캐슬 vs 맨시티", homeTeam: "뉴캐슬", awayTeam: "맨시티", date: "2023-12-27", aiPrediction: 30, predictedResult: "away_win", actualResult: "away_win", wasCorrect: true, errorMargin: 8, primaryCause: "form", causeDescription: "양팀 전력차 정확 분석" },
-  { id: "hist-15", matchTitle: "리버풀 vs 맨유", homeTeam: "리버풀", awayTeam: "맨유", date: "2023-12-17", aiPrediction: 62, predictedResult: "home_win", actualResult: "home_win", wasCorrect: true, errorMargin: 10, primaryCause: "home_advantage", causeDescription: "안필드 홈 이점 반영" },
-  { id: "hist-16", matchTitle: "아스날 vs 뉴캐슬", homeTeam: "아스날", awayTeam: "뉴캐슬", date: "2023-12-10", aiPrediction: 55, predictedResult: "home_win", actualResult: "draw", wasCorrect: false, errorMargin: 30, primaryCause: "fatigue", causeDescription: "유럽대회 피로 미반영" },
-  { id: "hist-17", matchTitle: "맨시티 vs 리버풀", homeTeam: "맨시티", awayTeam: "리버풀", date: "2023-12-03", aiPrediction: 52, predictedResult: "home_win", actualResult: "draw", wasCorrect: false, errorMargin: 22, primaryCause: "weather", causeDescription: "폭설 경기 변수 미반영" },
-  { id: "hist-18", matchTitle: "첼시 vs 맨유", homeTeam: "첼시", awayTeam: "맨유", date: "2023-11-26", aiPrediction: 48, predictedResult: "draw", actualResult: "home_win", wasCorrect: false, errorMargin: 32, primaryCause: "injury", causeDescription: "원정팀 부상자 과소평가" },
-  { id: "hist-19", matchTitle: "토트넘 vs 리버풀", homeTeam: "토트넘", awayTeam: "리버풀", date: "2023-11-19", aiPrediction: 42, predictedResult: "draw", actualResult: "away_win", wasCorrect: false, errorMargin: 38, primaryCause: "form", causeDescription: "리버풀 상승세 과소평가" },
-  { id: "hist-20", matchTitle: "맨유 vs 아스날", homeTeam: "맨유", awayTeam: "아스날", date: "2023-11-12", aiPrediction: 38, predictedResult: "away_win", actualResult: "away_win", wasCorrect: true, errorMargin: 8, primaryCause: "form", causeDescription: "아스날 폼 정확 반영" },
-];
-
-// Tuning weights for the auto-tuning system
-const defaultTuningWeights: Record<VariableType, number> = {
-  fatigue: 1.0,
-  injury: 1.0,
-  weather: 1.0,
-  form: 1.0,
-  home_advantage: 1.0,
-};
-
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
-
-// Mock prediction records for history page
-const mockPredictionRecords: PredictionRecord[] = [
-  { id: "pred-1", matchId: "hist-1", matchTitle: "맨시티 vs 아스날", date: "2024-03-31", aiPrediction: "home", userPrediction: "home", actualResult: "draw", aiCorrect: false, userCorrect: false },
-  { id: "pred-2", matchId: "hist-2", matchTitle: "리버풀 vs 첼시", date: "2024-03-24", aiPrediction: "home", userPrediction: "away", actualResult: "home", aiCorrect: true, userCorrect: false },
-  { id: "pred-3", matchId: "hist-3", matchTitle: "토트넘 vs 맨유", date: "2024-03-17", aiPrediction: "home", userPrediction: "home", actualResult: "away", aiCorrect: false, userCorrect: false },
-  { id: "pred-4", matchId: "hist-4", matchTitle: "아스날 vs 리버풀", date: "2024-03-10", aiPrediction: "draw", userPrediction: "draw", actualResult: "draw", aiCorrect: true, userCorrect: true },
-  { id: "pred-5", matchId: "hist-5", matchTitle: "첼시 vs 뉴캐슬", date: "2024-03-03", aiPrediction: "home", userPrediction: "home", actualResult: "home", aiCorrect: true, userCorrect: true },
-  { id: "pred-6", matchId: "hist-6", matchTitle: "맨유 vs 맨시티", date: "2024-02-25", aiPrediction: "away", userPrediction: "away", actualResult: "away", aiCorrect: true, userCorrect: true },
-  { id: "pred-7", matchId: "hist-7", matchTitle: "뉴캐슬 vs 토트넘", date: "2024-02-18", aiPrediction: "draw", userPrediction: "home", actualResult: "home", aiCorrect: false, userCorrect: true },
-  { id: "pred-8", matchId: "hist-8", matchTitle: "아스날 vs 첼시", date: "2024-02-11", aiPrediction: "home", userPrediction: "away", actualResult: "home", aiCorrect: true, userCorrect: false },
-  { id: "pred-9", matchId: "hist-9", matchTitle: "리버풀 vs 맨시티", date: "2024-02-04", aiPrediction: "draw", userPrediction: "home", actualResult: "away", aiCorrect: false, userCorrect: false },
-  { id: "pred-10", matchId: "hist-10", matchTitle: "맨시티 vs 토트넘", date: "2024-01-28", aiPrediction: "home", userPrediction: "home", actualResult: "home", aiCorrect: true, userCorrect: true },
-  { id: "pred-11", matchId: "hist-11", matchTitle: "첼시 vs 리버풀", date: "2024-01-21", aiPrediction: "away", userPrediction: "draw", actualResult: "draw", aiCorrect: false, userCorrect: true },
-  { id: "pred-12", matchId: "hist-12", matchTitle: "토트넘 vs 아스날", date: "2024-01-14", aiPrediction: "draw", userPrediction: "away", actualResult: "away", aiCorrect: false, userCorrect: true },
-];
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private matches: Map<string, Match>;
-  private historicalMatches: HistoricalMatch[];
-  private tuningWeights: Record<VariableType, number>;
   private lastApiFetch: number = 0;
   private userVotes: Map<string, UserVote>;
-  private predictionRecords: PredictionRecord[];
 
   constructor() {
     this.users = new Map();
     this.matches = new Map();
-    this.historicalMatches = [...mockHistoricalMatches];
-    this.tuningWeights = { ...defaultTuningWeights };
     this.userVotes = new Map();
-    this.predictionRecords = [...mockPredictionRecords];
-    
+
     mockMatches.forEach(match => {
       this.matches.set(match.id, match);
     });
@@ -354,122 +255,12 @@ export class MemStorage implements IStorage {
     return this.matches.get(id);
   }
 
-  async getMatchAnalysis(matchId: string): Promise<MatchAnalysis | undefined> {
-    const match = await this.getMatchById(matchId);
-    if (!match) return undefined;
-
-    const baseProbability = calculateBaseProbability(match.homeTeam, match.awayTeam);
-    const core1 = calculateCore1(match.homeTeam, match.awayTeam);
-    const core2Home = createCore2(match.homeTeam, true);
-    const core2Away = createCore2(match.awayTeam, false);
-    const core3Home = createCore3(match.homeTeam, true);
-    const core3Away = createCore3(match.awayTeam, false);
-
-    // Simulate lineup status (random for demo: ~30% confirmed, 70% predicted)
-    const isConfirmed = Math.random() < 0.3;
-    const lineup: LineupInfo = isConfirmed 
-      ? { status: 'confirmed', confirmedAt: new Date().toISOString() }
-      : { status: 'predicted' };
-
-    return {
-      matchId,
-      homeTeam: match.homeTeam,
-      awayTeam: match.awayTeam,
-      weather: match.weather,
-      odds: match.odds,
-      lineup,
-      cores: {
-        core1,
-        core2Home,
-        core2Away,
-        core3Home,
-        core3Away,
-      },
-      baseProbability,
-      adjustedProbability: { ...baseProbability },
-    };
-  }
-
-  async getHistoricalMatches(): Promise<HistoricalMatch[]> {
-    return this.historicalMatches;
-  }
-
-  async runBacktest(): Promise<BacktestResult> {
-    const totalMatches = this.historicalMatches.length;
-    const correctPredictions = this.historicalMatches.filter(m => m.wasCorrect).length;
-    const accuracy = Math.round((correctPredictions / totalMatches) * 100);
-    
-    // Find matches with significant errors (30%+ difference)
-    const significantErrors = this.historicalMatches.filter(m => m.errorMargin >= 30);
-    
-    // Count causes of significant errors
-    const causeCounts: Record<VariableType, number> = {
-      fatigue: 0,
-      injury: 0,
-      weather: 0,
-      form: 0,
-      home_advantage: 0,
-    };
-    
-    significantErrors.forEach(match => {
-      causeCounts[match.primaryCause]++;
-    });
-    
-    // Auto-tune weights based on error analysis
-    const tuningWeights: TuningWeight[] = [];
-    const insights: string[] = [];
-    
-    for (const [variable, count] of Object.entries(causeCounts)) {
-      if (count >= 2) {
-        const varType = variable as VariableType;
-        const originalWeight = this.tuningWeights[varType];
-        const adjustedWeight = Math.round(originalWeight * 1.2 * 100) / 100;
-        this.tuningWeights[varType] = adjustedWeight;
-        
-        const variableNames: Record<VariableType, string> = {
-          fatigue: "피로도",
-          injury: "부상 변수",
-          weather: "날씨 변수",
-          form: "팀 폼",
-          home_advantage: "홈 어드밴티지",
-        };
-        
-        tuningWeights.push({
-          variable: varType,
-          originalWeight,
-          adjustedWeight,
-          adjustmentReason: `${count}건의 예측 오류 발생`,
-        });
-        
-        const percentChange = Math.round((adjustedWeight - originalWeight) * 100);
-        insights.push(`'${variableNames[varType]}' 변수의 중요도를 ${percentChange}% 상향 조정했습니다.`);
-      }
-    }
-    
-    if (insights.length === 0) {
-      insights.push("모든 변수의 가중치가 적절합니다. 추가 조정이 필요하지 않습니다.");
-    }
-    
-    insights.unshift(`지난 시즌 ${totalMatches}경기 데이터로 훈련 완료.`);
-    insights.push(`전체 적중률: ${accuracy}% (${correctPredictions}/${totalMatches})`);
-    
-    return {
-      totalMatches,
-      correctPredictions,
-      accuracy,
-      significantErrors: significantErrors.length,
-      tuningWeights,
-      insights,
-      completedAt: new Date().toISOString(),
-    };
-  }
-
   private lastApiError: string | null = null;
-  
+
   getLastApiError(): string | null {
     return this.lastApiError;
   }
-  
+
   async refreshMatchesFromApi(): Promise<void> {
     if (!isApiConfigured()) {
       const msg = "API_SPORTS_KEY not configured in environment";
@@ -477,16 +268,16 @@ export class MemStorage implements IStorage {
       this.lastApiError = msg;
       throw new Error(msg);
     }
-    
+
     const now = Date.now();
     if (now - this.lastApiFetch < CACHE_TTL_MS && this.lastApiError === null) {
       console.log("[Storage] Using cached API data (TTL not expired)");
       return;
     }
-    
+
     console.log("[Storage] Calling fetchNextFixtures...");
     const apiMatches = await fetchNextFixtures();
-    
+
     if (apiMatches.length > 0) {
       this.matches.clear();
       apiMatches.forEach(match => {
@@ -503,160 +294,6 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async runTrainingWithRealData(matches: import("./api-football").HistoricalMatchWithResult[]): Promise<import("@shared/schema").TrainingResult> {
-    console.log(`[Storage] Running training with ${matches.length} real matches...`);
-    
-    const variableNames: Record<VariableType, string> = {
-      fatigue: "피로도",
-      injury: "부상 변수",
-      weather: "날씨 변수",
-      form: "팀 폼",
-      home_advantage: "홈 어드밴티지",
-    };
-    
-    const matchDetails: import("@shared/schema").TrainingMatch[] = [];
-    const errorCounts: Record<VariableType, number> = {
-      fatigue: 0,
-      injury: 0,
-      weather: 0,
-      form: 0,
-      home_advantage: 0,
-    };
-    
-    let correctPredictions = 0;
-    
-    for (const match of matches) {
-      // Calculate AI prediction based on our algorithm
-      const rankDiff = match.awayRank - match.homeRank;
-      const homeFormWins = (match.homeForm || "").split("").filter(r => r === 'W').length;
-      const awayFormWins = (match.awayForm || "").split("").filter(r => r === 'W').length;
-      
-      // Apply current tuning weights
-      let homeWinProb = 35 + (rankDiff * 2 * this.tuningWeights.home_advantage);
-      homeWinProb += (homeFormWins * 2 * this.tuningWeights.form);
-      homeWinProb -= (awayFormWins * 1 * this.tuningWeights.form);
-      
-      homeWinProb = Math.min(Math.max(homeWinProb, 15), 65);
-      let awayWinProb = 100 - homeWinProb - 25;
-      awayWinProb = Math.min(Math.max(awayWinProb, 15), 65);
-      const drawProb = 100 - homeWinProb - awayWinProb;
-      
-      // Determine predicted result
-      let predictedResult: MatchResult;
-      let aiPrediction: number;
-      if (homeWinProb > awayWinProb && homeWinProb > drawProb) {
-        predictedResult = 'home_win';
-        aiPrediction = homeWinProb;
-      } else if (awayWinProb > homeWinProb && awayWinProb > drawProb) {
-        predictedResult = 'away_win';
-        aiPrediction = awayWinProb;
-      } else {
-        predictedResult = 'draw';
-        aiPrediction = drawProb;
-      }
-      
-      const wasCorrect = predictedResult === match.actualResult;
-      if (wasCorrect) correctPredictions++;
-      
-      // Calculate error margin
-      let actualProb: number;
-      if (match.actualResult === 'home_win') actualProb = homeWinProb;
-      else if (match.actualResult === 'away_win') actualProb = awayWinProb;
-      else actualProb = drawProb;
-      
-      const errorMargin = wasCorrect ? 0 : Math.abs(100 - actualProb - aiPrediction);
-      
-      // Determine primary cause of error
-      let primaryCause: VariableType = 'form';
-      if (!wasCorrect) {
-        if (match.actualResult === 'away_win' && predictedResult === 'home_win') {
-          primaryCause = 'home_advantage';
-        } else if (match.actualResult === 'draw') {
-          primaryCause = 'weather';
-        } else if (Math.abs(match.homeRank - match.awayRank) > 8) {
-          primaryCause = 'form';
-        } else {
-          const causes: VariableType[] = ['fatigue', 'injury', 'weather', 'form', 'home_advantage'];
-          primaryCause = causes[Math.floor(Math.random() * causes.length)];
-        }
-        
-        if (errorMargin > 30) {
-          errorCounts[primaryCause]++;
-        }
-      }
-      
-      matchDetails.push({
-        id: match.id,
-        matchTitle: `${match.homeTeam} vs ${match.awayTeam}`,
-        homeTeam: match.homeTeam,
-        awayTeam: match.awayTeam,
-        homeScore: match.homeScore,
-        awayScore: match.awayScore,
-        date: new Date(match.date).toLocaleDateString('ko-KR'),
-        actualResult: match.actualResult,
-        predictedResult,
-        aiPrediction: Math.round(aiPrediction),
-        wasCorrect,
-        errorMargin: Math.round(errorMargin),
-        primaryCause,
-      });
-    }
-    
-    const totalMatches = matches.length;
-    const initialAccuracy = Math.round((correctPredictions / totalMatches) * 100);
-    
-    // Apply auto-tuning: adjust weights for variables with 2+ errors
-    const tuningWeights: TuningWeight[] = [];
-    const insights: string[] = [];
-    
-    for (const [varType, count] of Object.entries(errorCounts) as [VariableType, number][]) {
-      if (count >= 2) {
-        const originalWeight = this.tuningWeights[varType];
-        const adjustedWeight = Math.round((originalWeight * 1.2) * 100) / 100;
-        this.tuningWeights[varType] = adjustedWeight;
-        
-        tuningWeights.push({
-          variable: varType,
-          originalWeight,
-          adjustedWeight,
-          adjustmentReason: `${count}건의 예측 오류 발생으로 1.2배 상향`,
-        });
-        
-        insights.push(`'${variableNames[varType]}' 변수의 중요도를 1.2배 높였습니다. (오류 ${count}건)`);
-      }
-    }
-    
-    // Recalculate with adjusted weights (simulate improvement)
-    let adjustedCorrect = correctPredictions;
-    const improvementRate = tuningWeights.length > 0 ? 0.15 : 0;
-    adjustedCorrect += Math.floor((totalMatches - correctPredictions) * improvementRate);
-    const adjustedAccuracy = Math.round((adjustedCorrect / totalMatches) * 100);
-    
-    // Generate summary insights
-    insights.unshift(`총 ${totalMatches}경기 분석 완료. 초기 적중률 ${initialAccuracy}% → 보정 후 ${adjustedAccuracy}%로 상승.`);
-    
-    if (tuningWeights.length === 0) {
-      insights.push("모든 변수의 가중치가 적절합니다. 추가 조정이 필요하지 않습니다.");
-    }
-    
-    const significantErrors = Object.values(errorCounts).reduce((a, b) => a + b, 0);
-    
-    console.log(`[Storage] Training complete: ${initialAccuracy}% -> ${adjustedAccuracy}%`);
-    
-    return {
-      totalMatches,
-      correctPredictions,
-      initialAccuracy,
-      adjustedAccuracy,
-      significantErrors,
-      tuningWeights,
-      insights,
-      matchDetails,
-      completedAt: new Date().toISOString(),
-    };
-  }
-
-  // Vote & Prediction tracking methods
   async submitVote(matchId: string, choice: VoteChoice): Promise<UserVote> {
     const vote: UserVote = {
       id: randomUUID(),
@@ -674,65 +311,6 @@ export class MemStorage implements IStorage {
 
   async getAllVotes(): Promise<UserVote[]> {
     return Array.from(this.userVotes.values());
-  }
-
-  async getPredictionRecords(): Promise<PredictionRecord[]> {
-    return this.predictionRecords;
-  }
-
-  async getDailyAccuracyData(): Promise<DailyAccuracy[]> {
-    // Group predictions by date and calculate daily accuracy
-    const dateMap = new Map<string, { total: number; aiCorrect: number; userCorrect: number }>();
-    
-    for (const record of this.predictionRecords) {
-      if (!dateMap.has(record.date)) {
-        dateMap.set(record.date, { total: 0, aiCorrect: 0, userCorrect: 0 });
-      }
-      const data = dateMap.get(record.date)!;
-      data.total++;
-      if (record.aiCorrect) data.aiCorrect++;
-      if (record.userCorrect) data.userCorrect++;
-    }
-    
-    return Array.from(dateMap.entries())
-      .map(([date, data]) => ({
-        date,
-        totalMatches: data.total,
-        aiCorrect: data.aiCorrect,
-        userCorrect: data.userCorrect,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }
-
-  async getUserStats(): Promise<UserStats> {
-    const recordsWithUserVotes = this.predictionRecords.filter(r => r.userPrediction);
-    const totalVotes = recordsWithUserVotes.length;
-    const aiTotal = this.predictionRecords.length;
-    
-    if (totalVotes === 0) {
-      return {
-        totalVotes: 0,
-        userTotal: 0,
-        userCorrect: 0,
-        userAccuracy: 0,
-        aiTotal,
-        aiCorrect: this.predictionRecords.filter(r => r.aiCorrect).length,
-        aiAccuracy: aiTotal > 0 ? Math.round((this.predictionRecords.filter(r => r.aiCorrect).length / aiTotal) * 100) : 0,
-      };
-    }
-    
-    const userCorrect = recordsWithUserVotes.filter(r => r.userCorrect).length;
-    const aiCorrect = recordsWithUserVotes.filter(r => r.aiCorrect).length;
-    
-    return {
-      totalVotes,
-      userTotal: totalVotes,
-      userCorrect,
-      userAccuracy: Math.round((userCorrect / totalVotes) * 100),
-      aiTotal,
-      aiCorrect,
-      aiAccuracy: Math.round((aiCorrect / totalVotes) * 100),
-    };
   }
 }
 
