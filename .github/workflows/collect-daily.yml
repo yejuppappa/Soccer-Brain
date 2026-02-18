@@ -28,7 +28,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 30
 
     steps:
       - name: 📥 코드 체크아웃
@@ -52,18 +52,19 @@ jobs:
           if [ -n "${{ github.event.inputs.tasks }}" ]; then
             TASKS=$(echo "${{ github.event.inputs.tasks }}" | tr ',' ' ')
           else
-            # cron 시간대에 따라 태스크 자동 결정
-            HOUR_UTC=$(date -u +%H)
-            case $HOUR_UTC in
-              21) TASKS="fixtures" ;;           # 06:00 KST
-              23) TASKS="injuries" ;;           # 08:00 KST
-              00) TASKS="weather" ;;            # 09:00 KST
-              09) TASKS="injuries" ;;           # 18:00 KST
-              *)  TASKS="fixtures injuries weather" ;;
+            # github.event.schedule로 어떤 cron이 트리거했는지 정확히 판별
+            # (date -u +%H는 GitHub Actions cron 지연 시 잘못된 시간을 반환)
+            CRON="${{ github.event.schedule }}"
+            case "$CRON" in
+              "0 21 * * *") TASKS="fixtures" ;;        # 06:00 KST
+              "0 23 * * *") TASKS="injuries" ;;        # 08:00 KST
+              "0 0 * * *")  TASKS="weather" ;;         # 09:00 KST
+              "0 9 * * *")  TASKS="injuries" ;;        # 18:00 KST
+              *)            TASKS="fixtures" ;;        # 알 수 없는 경우 fixtures만
             esac
           fi
           echo "tasks=$TASKS" >> $GITHUB_OUTPUT
-          echo "📋 실행: $TASKS"
+          echo "📋 실행: $TASKS (cron: ${{ github.event.schedule }})"
 
       - name: 🤖 데이터 수집
         run: npx tsx scripts/collect.ts ${{ steps.decide.outputs.tasks }}

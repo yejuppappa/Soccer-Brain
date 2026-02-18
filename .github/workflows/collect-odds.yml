@@ -15,7 +15,7 @@ concurrency:
 jobs:
   odds:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: 📥 코드 체크아웃
