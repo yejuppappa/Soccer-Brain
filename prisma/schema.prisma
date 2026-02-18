@@ -14,7 +14,10 @@ model League {
   country     String?
   season      Int
   enabled     Boolean  @default(true)
+  exposed     Boolean  @default(true)  // 프론트엔드 노출 여부
   priority    Int      @default(0)
+  logoUrl     String?
+  flagUrl     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -84,6 +87,7 @@ model Fixture {
 
   kickoffAt DateTime
   status    String
+  round     String?  // API-Football round (e.g. "Regular Season - 25")
 
   homeTeam   Team   @relation("HomeTeam", fields: [homeTeamId], references: [id])
   homeTeamId BigInt
@@ -103,8 +107,6 @@ model Fixture {
   updatedAt DateTime @updatedAt
 
   stats      TeamMatchStat[]
-  prediction Prediction?
-
   weather          FixtureWeather?
   odds             FixtureOdds?
   lineups          FixtureLineup[]
@@ -112,7 +114,6 @@ model Fixture {
   lineupPlayers    FixtureLineupPlayer[]
   injuries         FixtureInjury[]
   predictedLineups FixturePredictedLineup[]
-  featureSnapshot FixtureFeatureSnapshot?
   bookmakerOdds   BookmakerOdds[]
 
 
@@ -138,32 +139,6 @@ model TeamMatchStat {
 
   @@unique([fixtureId, teamId])
   @@index([teamId, playedAt])
-}
-
-model Prediction {
-  id BigInt @id @default(autoincrement())
-
-  fixture   Fixture @relation(fields: [fixtureId], references: [id])
-  fixtureId BigInt  @unique
-
-  modelVersion String
-
-  lambdaHome Decimal
-  lambdaAway Decimal
-
-  pHome Decimal
-  pDraw Decimal
-  pAway Decimal
-
-  pOver25  Decimal
-  pUnder25 Decimal
-
-  evidenceJson    Json?
-  reliabilityJson Json?
-
-  createdAt DateTime @default(now())
-
-  @@index([modelVersion, createdAt])
 }
 
 model FixtureWeather {
@@ -304,7 +279,13 @@ model FixtureTeamStatSnapshot {
   saves           Int?
   xg              Float?
 
-  // UI 레이더(ATT/DEF/ORG/FORM/GOAL)는 “원천 stats → 점수화”로 만드는 게 좋아서
+  // 추가 통계 (Phase A)
+  shotsInsideBox   Int?
+  shotsOutsideBox  Int?
+  blockedShots     Int?
+  goalsPrevented   Float?
+
+  // UI 레이더(ATT/DEF/ORG/FORM/GOAL)는 "원천 stats → 점수화"로 만드는 게 좋아서
   // 일단 raw를 저장 + 나중에 점수 컬럼 추가 추천
   raw       Json?
   fetchedAt DateTime @default(now())
@@ -407,135 +388,6 @@ model FixtureInjury {
   @@index([fixtureId])
   @@index([teamId])
   @@index([apiPlayerId])
-}
-
-model FixtureFeatureSnapshot {
-  id        BigInt  @id @default(autoincrement())
-
-  fixture   Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
-  fixtureId BigInt  @unique
-
-  featureVersion Int      @default(1)
-  nMatches        Int      @default(5)
-  builtAt         DateTime @default(now())
-
-  // ===== labels / 기본 =====
-  kickoffAt DateTime
-  season    Int
-  leagueId  BigInt
-
-  homeTeamId BigInt
-  awayTeamId BigInt
-
-  homeGoals Int?
-  awayGoals Int?
-
-  // ===== injuries (해당 경기 기준) =====
-  homeInjuryCount Int @default(0)
-  awayInjuryCount Int @default(0)
-
-  // ===== weather (해당 경기 기준) =====
-  tempC           Float?
-  precipitationMm Float?
-  windKph         Float?
-  humidityPct     Int?
-  pressureHpa     Float?
-  cloudCoverPct   Int?
-  isDay           Boolean?
-
-  // ===== recent N matches (팀 기준 평균) =====
-  home_shotsTotal_avg      Float?
-  home_shotsOnTarget_avg   Float?
-  home_possessionPct_avg   Float?
-  home_passesTotal_avg     Float?
-  home_passAccuracyPct_avg Float?
-  home_fouls_avg           Float?
-  home_corners_avg         Float?
-  home_yellowCards_avg     Float?
-  home_redCards_avg        Float?
-  home_xg_avg              Float?
-
-  away_shotsTotal_avg      Float?
-  away_shotsOnTarget_avg   Float?
-  away_possessionPct_avg   Float?
-  away_passesTotal_avg     Float?
-  away_passAccuracyPct_avg Float?
-  away_fouls_avg           Float?
-  away_corners_avg         Float?
-  away_yellowCards_avg     Float?
-  away_redCards_avg        Float?
-  away_xg_avg              Float?
-
-  // ===== recent N matches (득실 평균) =====
-  home_goalsFor_avg     Float?
-  home_goalsAgainst_avg Float?
-  away_goalsFor_avg     Float?
-  away_goalsAgainst_avg Float?
-
-    // ===== V2: 상대 비교(diff) =====
-  shotsTotal_diff          Float?
-  shotsOnTarget_diff       Float?
-  possessionPct_diff       Float?
-  passesTotal_diff         Float?
-  passAccuracyPct_diff     Float?
-  fouls_diff               Float?
-  corners_diff             Float?
-  yellowCards_diff         Float?
-  redCards_diff            Float?
-  xg_diff                  Float?
-  injuryCount_diff         Int?
-  goalsFor_diff            Float?
-  goalsAgainst_diff        Float?
-
-  // ===== V3: 홈/원정 분리 성적 =====
-  // 홈팀의 "홈에서" 성적
-  home_goalsFor_atHome_avg     Float?
-  home_goalsAgainst_atHome_avg Float?
-  home_xg_atHome_avg           Float?
-  home_wins_atHome_pct         Float?  // 홈 승률
-  
-  // 원정팀의 "원정에서" 성적
-  away_goalsFor_atAway_avg     Float?
-  away_goalsAgainst_atAway_avg Float?
-  away_xg_atAway_avg           Float?
-  away_wins_atAway_pct         Float?  // 원정 승률
-  
-  // ===== V3: 폼 (최근 경기 결과) =====
-  home_form_last3   Float?  // 최근 3경기 승점 평균 (승=3, 무=1, 패=0)
-  home_form_last5   Float?  // 최근 5경기 승점 평균
-  away_form_last3   Float?
-  away_form_last5   Float?
-  
-  // ===== V3: 득점력/수비력 차이 =====
-  attack_diff       Float?  // 홈 홈득점 - 원정 원정실점
-  defense_diff      Float?  // 홈 홈실점 - 원정 원정득점
-
-  // ===== V4: 경기 텀/피로 =====
-  home_days_rest        Int?    // 홈팀 마지막 경기 후 휴식일
-  away_days_rest        Int?    // 원정팀 마지막 경기 후 휴식일
-  rest_diff             Int?    // 휴식일 차이 (+ = 홈팀 유리)
-  
-  home_matches_14d      Int?    // 홈팀 최근 14일간 경기 수
-  away_matches_14d      Int?    // 원정팀 최근 14일간 경기 수
-  congestion_diff       Int?    // 경기 밀집도 차이
-  
-  // 유럽대회 피로 (UCL/Europa)
-  home_european_7d      Int?    // 홈팀 최근 7일 내 유럽대회 경기 수
-  away_european_7d      Int?    // 원정팀 최근 7일 내 유럽대회 경기 수
-  european_diff         Int?    // 유럽대회 피로 차이
-
-  // ===== V5: 상대전적 (H2H) =====
-  h2h_total_matches     Int?    // 최근 2년 맞대결 횟수
-  h2h_home_wins         Int?    // 홈팀 승리 횟수
-  h2h_away_wins         Int?    // 원정팀 승리 횟수
-  h2h_draws             Int?    // 무승부 횟수
-  h2h_home_goals_avg    Float?  // 홈팀 평균 득점
-  h2h_away_goals_avg    Float?  // 원정팀 평균 득점
-  h2h_home_win_pct      Float?  // 홈팀 승률
-
-
-  @@index([leagueId, kickoffAt])
-  @@index([featureVersion])
 }
 
 // ============================================================

@@ -14,7 +14,6 @@ async function main() {
   const totalFT = await prisma.fixture.count({ where: { status: "FT" } });
   const totalStats = await prisma.fixtureTeamStatSnapshot.count();
   const uniqueStatsFixtures = await prisma.fixture.count({ where: { teamStats: { some: {} } } });
-  const totalFeatures = await prisma.fixtureFeatureSnapshot.count();
   const totalTeams = await prisma.team.count();
   const activeLeagues = await prisma.league.count({ where: { enabled: true } });
 
@@ -22,7 +21,6 @@ async function main() {
   console.log(`  총 경기 수:        ${totalFixtures.toLocaleString()}`);
   console.log(`  종료(FT) 경기:     ${totalFT.toLocaleString()}`);
   console.log(`  스탯 보유 경기:    ${uniqueStatsFixtures.toLocaleString()} (${(uniqueStatsFixtures/totalFT*100).toFixed(1)}%)`);
-  console.log(`  피처 스냅샷:       ${totalFeatures.toLocaleString()} (${(totalFeatures/totalFT*100).toFixed(1)}%)`);
   console.log(`  팀 수:             ${totalTeams.toLocaleString()}`);
   console.log(`  활성 리그/컵:      ${activeLeagues}`);
 
@@ -34,14 +32,13 @@ async function main() {
   });
 
   console.log("\n── 리그별 상세 현황 ───────────────────────────────────");
-  console.log("  리그                          | 총경기 |  FT  | 스탯 | 피처 | 시즌범위");
-  console.log("  " + "─".repeat(85));
+  console.log("  리그                          | 총경기 |  FT  | 스탯 | 시즌범위");
+  console.log("  " + "─".repeat(80));
 
   for (const league of leagues) {
     const fixtures = await prisma.fixture.count({ where: { leagueId: league.id } });
     const ft = await prisma.fixture.count({ where: { leagueId: league.id, status: "FT" } });
     const stats = await prisma.fixture.count({ where: { leagueId: league.id, teamStats: { some: {} } } });
-    const features = await prisma.fixtureFeatureSnapshot.count({ where: { leagueId: league.id } });
 
     const seasons = await prisma.fixture.groupBy({
       by: ["season"],
@@ -55,7 +52,7 @@ async function main() {
       : "없음";
 
     const name = league.name.padEnd(30);
-    console.log(`  ${name} | ${String(fixtures).padStart(5)} | ${String(ft).padStart(4)} | ${String(stats).padStart(4)} | ${String(features).padStart(4)} | ${seasonRange}`);
+    console.log(`  ${name} | ${String(fixtures).padStart(5)} | ${String(ft).padStart(4)} | ${String(stats).padStart(4)} | ${seasonRange}`);
   }
 
   // 3. 시즌별 분포
@@ -80,18 +77,8 @@ async function main() {
     },
   });
 
-  const ftNoFeatures = await prisma.fixture.count({
-    where: {
-      status: "FT",
-      leagueId: { in: leagues.map(l => l.id) },
-      featureSnapshot: null,
-      teamStats: { some: {} },
-    },
-  });
-
   console.log("\n── 백필 잔여 작업 ─────────────────────────────────────");
   console.log(`  FT인데 스탯 없음:    ${ftNoStats.toLocaleString()}경기 (다음 백필 대상)`);
-  console.log(`  스탯 있는데 피처 없음: ${ftNoFeatures.toLocaleString()}경기 (피처 빌드 대상)`);
 
   // 5. 배당 데이터
   try {

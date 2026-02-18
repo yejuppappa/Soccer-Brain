@@ -33,9 +33,9 @@ import axios from "axios";
 // ============================================================
 // 상수 정의
 // ============================================================
-const CALENDAR_YEAR_LEAGUES = new Set([292, 293, 98, 99, 294, 17, 18]); // K리그, J리그, 한국FA컵, AFC
+const CALENDAR_YEAR_LEAGUES = new Set([292, 293, 98, 99]); // K리그1, K리그2, J1리그, J2리그
 const API_DELAY_MS = 300; // API 호출 간격 (속도 제한 방지)
-const LINEUP_CHECK_HOURS_BEFORE = 1; // 경기 몇 시간 전부터 라인업 체크
+const LINEUP_CHECK_HOURS_BEFORE = 0; // 경기 직전까지 라인업 체크
 
 // ============================================================
 // 유틸리티 함수들
@@ -115,14 +115,20 @@ export async function syncFixtures(): Promise<{ synced: number; errors: number }
           const home = await prisma.team.upsert({
             where: { apiTeamId: fx.homeTeamId },
             update: { name: fx.homeTeam },
-            create: { apiTeamId: fx.homeTeamId, name: fx.homeTeam },
+            create: { apiTeamId: fx.homeTeamId, name: fx.homeTeam, logoUrl: `https://media.api-sports.io/football/teams/${fx.homeTeamId}.png` },
           });
+          if (!home.logoUrl) {
+            await prisma.team.update({ where: { id: home.id }, data: { logoUrl: `https://media.api-sports.io/football/teams/${fx.homeTeamId}.png` } });
+          }
 
           const away = await prisma.team.upsert({
             where: { apiTeamId: fx.awayTeamId },
             update: { name: fx.awayTeam },
-            create: { apiTeamId: fx.awayTeamId, name: fx.awayTeam },
+            create: { apiTeamId: fx.awayTeamId, name: fx.awayTeam, logoUrl: `https://media.api-sports.io/football/teams/${fx.awayTeamId}.png` },
           });
+          if (!away.logoUrl) {
+            await prisma.team.update({ where: { id: away.id }, data: { logoUrl: `https://media.api-sports.io/football/teams/${fx.awayTeamId}.png` } });
+          }
 
           // Fixture upsert
           const fixture = await prisma.fixture.upsert({
@@ -155,7 +161,7 @@ export async function syncFixtures(): Promise<{ synced: number; errors: number }
           });
 
           // 새 경기면 날씨도 가져오기
-          await syncWeatherForFixture(fixture.id, fx.venueName, fx.venueCity);
+          await syncWeatherForFixture(fixture.id, fx.venueName ?? null, fx.venueCity ?? null);
 
           synced++;
         }
@@ -257,16 +263,16 @@ export async function syncResultsAndStats(): Promise<{ updated: number; statsAdd
   return { updated, statsAdded, errors };
 }
 
-// 팀 스탯 가져오기 (이미 있으면 스킵)
+// 팀 스탯 가져오기 (완전히 있으면 스킵)
 async function syncTeamStatsForFixture(fixtureId: bigint, apiFixtureId: number): Promise<boolean> {
   try {
-    // 이미 있는지 확인
-    const existing = await prisma.fixtureTeamStatSnapshot.findFirst({
+    // 이미 있는지 확인 (2개 있으면 완료, 아니면 재수집)
+    const existingCount = await prisma.fixtureTeamStatSnapshot.count({
       where: { fixtureId },
     });
 
-    if (existing) {
-      return false; // 이미 있으면 스킵
+    if (existingCount >= 2) {
+      return false; // 홈+어웨이 2개 다 있으면 스킵
     }
 
     const stats = await fetchFixtureStatistics(apiFixtureId);
@@ -308,7 +314,7 @@ async function syncTeamStatsForFixture(fixtureId: bigint, apiFixtureId: number):
           redCards: parseInt(getValue("Red Cards")) || null,
           saves: parseInt(getValue("Goalkeeper Saves")) || null,
           xg: parseFloat(getValue("expected_goals")) || null,
-          raw: teamStats,
+          raw: teamStats as unknown as import("@prisma/client").Prisma.InputJsonValue,
           fetchedAt: new Date(),
         },
         create: {
@@ -329,7 +335,7 @@ async function syncTeamStatsForFixture(fixtureId: bigint, apiFixtureId: number):
           redCards: parseInt(getValue("Red Cards")) || null,
           saves: parseInt(getValue("Goalkeeper Saves")) || null,
           xg: parseFloat(getValue("expected_goals")) || null,
-          raw: teamStats,
+          raw: teamStats as unknown as import("@prisma/client").Prisma.InputJsonValue,
         },
       });
     }
@@ -411,8 +417,11 @@ export async function syncStandings(): Promise<{ updated: number; errors: number
           const team = await prisma.team.upsert({
             where: { apiTeamId: s.teamId },
             update: { name: s.teamName },
-            create: { apiTeamId: s.teamId, name: s.teamName },
+            create: { apiTeamId: s.teamId, name: s.teamName, logoUrl: `https://media.api-sports.io/football/teams/${s.teamId}.png` },
           });
+          if (!team.logoUrl) {
+            await prisma.team.update({ where: { id: team.id }, data: { logoUrl: `https://media.api-sports.io/football/teams/${s.teamId}.png` } });
+          }
 
           await prisma.standing.upsert({
             where: {
@@ -726,7 +735,7 @@ export async function syncInjuries(): Promise<{ saved: number; errors: number }>
 
         const items: any[] = response.data?.response ?? [];
 
-        for (const item of items.slice(0, 100)) {
+        for (const item of items) {
           const apiFixtureId = item?.fixture?.id;
           const apiTeamId = item?.team?.id;
           const playerName = item?.player?.name;
@@ -803,7 +812,65 @@ export async function syncInjuries(): Promise<{ saved: number; errors: number }>
 }
 
 // ============================================================
-// 6. 라인업 동기화 (30분마다 - 경기 1시간 전부터)
+// 6. 누락 통계 백필 (주 1회 - 48시간 놓친 경기 복구)
+// ============================================================
+export async function syncMissedStats(): Promise<{ backfilled: number; errors: number }> {
+  if (shouldSkip('백필')) return { backfilled: 0, errors: 0 };
+  let backfilled = 0;
+  let errors = 0;
+
+  try {
+    log("🔄 누락 통계 백필 시작 (FT인데 통계 없는 경기)...");
+
+    // 지난 60일 내 FT 경기 중 FixtureTeamStatSnapshot 없는 것
+    const now = new Date();
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+    const missedFixtures = await prisma.fixture.findMany({
+      where: {
+        kickoffAt: { gte: sixtyDaysAgo, lte: now },
+        status: "FT",
+        teamStats: { none: {} },
+      },
+      include: { league: true },
+      take: 100, // 한 번에 최대 100경기만 (쿼터 보호)
+      orderBy: { kickoffAt: "desc" },
+    });
+
+    if (missedFixtures.length === 0) {
+      log("✅ 누락 통계 없음", 'success');
+      markDone('백필');
+      return { backfilled: 0, errors: 0 };
+    }
+
+    log(`누락 경기 발견: ${missedFixtures.length}개`);
+
+    for (const fixture of missedFixtures) {
+      try {
+        const success = await syncTeamStatsForFixture(fixture.id, fixture.apiFixtureId);
+        if (success) {
+          backfilled++;
+          log(`✅ ${fixture.apiFixtureId} 백필 완료`);
+        }
+
+        await delay(API_DELAY_MS);
+      } catch (err: any) {
+        errors++;
+        log(`❌ ${fixture.apiFixtureId} 백필 실패: ${err.message}`, 'error');
+      }
+    }
+
+    log(`누락 통계 백필: ${backfilled}개 완료, ${errors}개 실패`, backfilled > 0 ? 'success' : 'warn');
+    markDone('백필');
+  } catch (error: any) {
+    log(`누락 통계 백필 실패: ${error.message}`, 'error');
+  }
+
+  return { backfilled, errors };
+}
+
+// ============================================================
+// 7. 라인업 동기화 (30분마다 - 경기 1시간 전부터)
 // ============================================================
 export async function syncLineups(): Promise<{ updated: number; errors: number }> {
   if (shouldSkip('라인업')) return { updated: 0, errors: 0 };
@@ -812,13 +879,12 @@ export async function syncLineups(): Promise<{ updated: number; errors: number }
 
   try {
     const now = new Date();
-    const oneHourLater = new Date(now.getTime() + LINEUP_CHECK_HOURS_BEFORE * 60 * 60 * 1000);
-    const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const threeHoursLater = new Date(now.getTime() + 3 * 60 * 60 * 1000);
 
-    // 1~2시간 후 시작 경기 중 라인업 미확정인 것
+    // 현재~3시간 후 시작 경기 중 라인업 미확정인 것
     const fixtures = await prisma.fixture.findMany({
       where: {
-        kickoffAt: { gte: oneHourLater, lte: twoHoursLater },
+        kickoffAt: { gte: now, lte: threeHoursLater },
         status: { in: ["NS", "TBD"] },
       },
       include: {
@@ -1095,34 +1161,6 @@ function getWeatherCondition(code: number): string {
 }
 
 // ============================================================
-// 8. 피처 빌드 (매일 09:00)
-// ============================================================
-async function triggerFeatureBuild(): Promise<void> {
-  try {
-    const port = process.env.PORT || 5000;
-    
-    const now = new Date();
-    const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-    const from = now.toISOString().split('T')[0];
-    const to = threeDaysLater.toISOString().split('T')[0];
-
-    log(`피처 빌드: ${from} ~ ${to}`);
-
-    const response = await axios.post(
-      `http://localhost:${port}/api/admin/build-features-batch`,
-      null,
-      { params: { from, to }, timeout: 120000 }
-    );
-
-    if (response.data?.ok) {
-      log(`피처 빌드 완료: ${response.data.built || 0}개`, 'success');
-    }
-  } catch (error: any) {
-    log(`피처 빌드 실패: ${error.message}`, 'warn');
-  }
-}
-
-// ============================================================
 // 스케줄러 초기화
 // ============================================================
 export function initUnifiedScheduler(): void {
@@ -1149,14 +1187,7 @@ export function initUnifiedScheduler(): void {
     await syncOddsWithHistory();
     await syncInjuries();
     await syncWeatherUpdates();
-    // 국내배당 (Puppeteer→환산 폴백)
-    try {
-      const { syncDomesticOdds } = await import("./betman");
-      const dr = await syncDomesticOdds();
-      log(`📦 국내배당: [${dr.method}] ${dr.updated}건`, dr.updated > 0 ? 'success' : 'warn');
-    } catch (err: any) {
-      log(`📦 국내배당 실패: ${err.message}`, 'warn');
-    }
+    await syncLineups();
     log("📦 초기 동기화 완료!", 'success');
   }, 30000);
 
@@ -1195,26 +1226,11 @@ export function initUnifiedScheduler(): void {
   }, { timezone: "Asia/Seoul" });
 
   // ────────────────────────────────────────────────────────────
-  // 매일 09:00: 피처 빌드 + 날씨 업데이트
+  // 매일 09:00: 날씨 업데이트
   // ────────────────────────────────────────────────────────────
   cron.schedule("0 9 * * *", async () => {
-    log("📊 피처 빌드 + 날씨 업데이트...");
+    log("🌦️ 날씨 업데이트...");
     await syncWeatherUpdates();
-    await triggerFeatureBuild();
-  }, { timezone: "Asia/Seoul" });
-
-  // ────────────────────────────────────────────────────────────
-  // 매일 10:00, 16:00: 국내배당 동기화 (Puppeteer → 환산 폴백)
-  // ────────────────────────────────────────────────────────────
-  cron.schedule("0 10,16 * * *", async () => {
-    log("🇰🇷 국내배당 동기화...");
-    try {
-      const { syncDomesticOdds } = await import("./betman");
-      const result = await syncDomesticOdds();
-      log(`국내배당: [${result.method}] ${result.updated}건 저장`, result.updated > 0 ? 'success' : 'warn');
-    } catch (err: any) {
-      log(`국내배당 동기화 실패: ${err.message}`, 'error');
-    }
   }, { timezone: "Asia/Seoul" });
 
   // ────────────────────────────────────────────────────────────
@@ -1226,15 +1242,23 @@ export function initUnifiedScheduler(): void {
   }, { timezone: "Asia/Seoul" });
 
   // ────────────────────────────────────────────────────────────
+  // 매주 일요일 03:00: 누락 통계 백필
+  // ────────────────────────────────────────────────────────────
+  cron.schedule("0 3 * * 0", async () => {
+    log("🔄 누락 통계 백필 (주 1회)...");
+    await syncMissedStats();
+  }, { timezone: "Asia/Seoul" });
+
+  // ────────────────────────────────────────────────────────────
   log("✅ 통합 스케줄러 시작!");
   log("📋 스케줄:");
   log("   • 30분마다      → 순위 + 결과 + 라인업");
   log("   • 1시간마다     → 배당 (히스토리 저장)");
   log("   • 매일 06:00    → 경기 일정");
   log("   • 매일 08:00    → 부상자 1차");
-  log("   • 매일 09:00    → 피처 빌드 + 날씨");
-  log("   • 매일 10:00,16:00 → 🇰🇷 국내배당 (Puppeteer→환산)");
+  log("   • 매일 09:00    → 날씨");
   log("   • 매일 18:00    → 부상자 2차");
+  log("   • 매주 일요일 03:00 → 🔄 누락 통계 백필");
 }
 
 // ============================================================
@@ -1248,8 +1272,8 @@ export const manualSync = {
   injuries: syncInjuries,
   lineups: syncLineups,
   weather: syncWeatherUpdates,
-  features: triggerFeatureBuild,
-  
+  backfill: syncMissedStats,
+
   all: async () => {
     log("🔄 전체 수동 동기화...");
     await syncFixtures();
@@ -1257,7 +1281,7 @@ export const manualSync = {
     await syncOddsWithHistory();
     await syncInjuries();
     await syncWeatherUpdates();
-    await triggerFeatureBuild();
+    await syncMissedStats();
     log("🎉 전체 동기화 완료!", 'success');
   }
 };

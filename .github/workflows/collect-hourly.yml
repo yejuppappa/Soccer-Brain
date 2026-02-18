@@ -35,8 +35,6 @@ jobs:
 
       - name: 📦 의존성 설치
         run: npm install --ignore-scripts
-        env:
-          PUPPETEER_SKIP_DOWNLOAD: "true"
 
       - name: 🔧 Prisma 생성
         run: npx prisma generate

@@ -1,5 +1,5 @@
 # ⚽ Soccer Brain - 일별 데이터 수집
-# 경기 일정, 부상자, 날씨, 국내배당
+# 경기 일정, 부상자, 날씨
 
 name: 📅 Daily Data Collection
 
@@ -11,10 +11,6 @@ on:
     - cron: "0 23 * * *"
     # 09:00 KST = 00:00 UTC → 날씨
     - cron: "0 0 * * *"
-    # 10:00 KST = 01:00 UTC → 국내배당 1차
-    - cron: "0 1 * * *"
-    # 16:00 KST = 07:00 UTC → 국내배당 2차
-    - cron: "0 7 * * *"
     # 18:00 KST = 09:00 UTC → 부상자 2차
     - cron: "0 9 * * *"
 
@@ -24,6 +20,10 @@ on:
         description: "실행할 태스크 (쉼표 구분)"
         required: false
         default: "fixtures,injuries,weather"
+
+concurrency:
+  group: daily-collection
+  cancel-in-progress: false
 
 jobs:
   collect:
@@ -42,8 +42,6 @@ jobs:
 
       - name: 📦 의존성 설치
         run: npm install --ignore-scripts
-        env:
-          PUPPETEER_SKIP_DOWNLOAD: "true"
 
       - name: 🔧 Prisma 생성
         run: npx prisma generate
@@ -60,8 +58,6 @@ jobs:
               21) TASKS="fixtures" ;;           # 06:00 KST
               23) TASKS="injuries" ;;           # 08:00 KST
               00) TASKS="weather" ;;            # 09:00 KST
-              01) TASKS="domestic" ;;           # 10:00 KST
-              07) TASKS="domestic" ;;           # 16:00 KST
               09) TASKS="injuries" ;;           # 18:00 KST
               *)  TASKS="fixtures injuries weather" ;;
             esac

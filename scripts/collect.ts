@@ -15,8 +15,7 @@
  *   injuries    - 부상자 명단
  *   lineups     - 라인업
  *   weather     - 날씨 업데이트
- *   domestic    - 국내배당 (Puppeteer → 환산 폴백)
- *   all         - 전부 실행 (domestic 제외)
+ *   all         - 전부 실행
  * 
  * 예시:
  *   npx tsx scripts/collect.ts odds              # 배당만
@@ -43,10 +42,6 @@ const TASKS: Record<string, () => Promise<any>> = {
   injuries: syncInjuries,
   lineups: syncLineups,
   weather: syncWeatherUpdates,
-  domestic: async () => {
-    const { syncDomesticOdds } = await import("../server/betman");
-    return syncDomesticOdds();
-  },
 };
 
 async function main() {
@@ -58,9 +53,9 @@ async function main() {
     process.exit(1);
   }
 
-  // "all" → domestic 제외 전부
+  // "all" → 전부 실행
   const taskNames = args.includes("all")
-    ? Object.keys(TASKS).filter((t) => t !== "domestic")
+    ? Object.keys(TASKS)
     : args;
 
   const unknown = taskNames.filter((t) => !TASKS[t]);

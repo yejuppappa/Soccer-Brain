@@ -1,6 +1,6 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./routes/index";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initUnifiedScheduler } from "./unified-scheduler";
@@ -93,7 +93,7 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
   // 수정된 부분: 복잡한 설정({ host, reusePort })을 다 빼고 'port'만 넣습니다.
-  httpServer.listen(port, () => {
+  httpServer.listen(port, "0.0.0.0", () => {
       log(`serving on port ${port}`);
       
       // 스케줄러: DISABLE_SCHEDULER=true면 비활성화 (개발 중 편의)

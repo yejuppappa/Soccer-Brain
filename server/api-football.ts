@@ -320,6 +320,7 @@ export async function fetchNextFixtures(): Promise<Match[]> {
     
     return {
       id: `match-${fixture.fixture.id}`,
+      sportType: 'soccer' as const,
       homeTeam,
       awayTeam,
       matchTime: fixture.fixture.date,

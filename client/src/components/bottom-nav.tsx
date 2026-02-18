@@ -14,7 +14,10 @@ export function BottomNav() {
   const activePath = location.startsWith("/match/") ? "/" : location;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#0F1420] border-t border-[#1E293B] safe-area-pb">
+    <nav
+      className="flex-shrink-0 bg-sb-footer-bg safe-area-pb"
+      style={{ boxShadow: "0px -1px 11px -1px rgba(0,0,0,0.15)" }}
+    >
       <div className="max-w-lg mx-auto flex">
         {tabs.map(({ path, icon: Icon, label }) => {
           const isActive = activePath === path;
@@ -23,7 +26,7 @@ export function BottomNav() {
               key={path}
               onClick={() => navigate(path)}
               className={`flex-1 flex flex-col items-center py-2.5 gap-0.5 transition-colors
-                ${isActive ? "text-[#3B82F6]" : "text-[#64748B] active:text-[#94A3B8]"}`}
+                ${isActive ? "text-sb-footer-active" : "text-sb-footer-inactive active:text-sb-text"}`}
             >
               <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 1.8} />
               <span className={`text-[10px] ${isActive ? "font-semibold" : "font-normal"}`}>
